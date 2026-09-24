@@ -73,8 +73,8 @@ export interface IChessBoard {
   /** Получить все легальные ходы для фигуры (с учётом шаха) */
   getLegalMoves(position: Position): Position[];
 
-  /** Выполнить ход */
-  makeMove(from: Position, to: Position): Move | null;
+  /** Выполнить ход. promotion — тип фигуры для превращения пешки (queen/rook/bishop/knight) */
+  makeMove(from: Position, to: Position, promotion?: PieceType): Move | null;
 
   /** Определить, чей ход */
   getCurrentTurn(): PieceColor;

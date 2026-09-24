@@ -1,6 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { ChessBoard } from './classes/ChessBoard';
-import { Position, positionToNotation } from './types/chess';
+import { Position, PieceType, PIECE_SYMBOLS } from './types/chess';
+
+/** Фигуры, доступные для превращения пешки */
+const PROMOTION_PIECES: PieceType[] = ['queen', 'rook', 'bishop', 'knight'];
 
 function App() {
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -16,31 +19,55 @@ function App() {
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
   // Последний ход (для подсветки)
   const [lastMove, setLastMove] = useState<{ from: Position; to: Position } | null>(null);
+  // Ожидаемое превращение пешки
+  const [pendingPromotion, setPendingPromotion] = useState<{
+    from: Position;
+    to: Position;
+  } | null>(null);
 
   const forceRender = useCallback(() => {
     setRenderTrigger((prev) => prev + 1);
   }, []);
 
+  /** Выполнить ход с превращением (или без) */
+  const executeMove = useCallback(
+    (from: Position, to: Position, promotion?: PieceType) => {
+      const move = board.makeMove(from, to, promotion);
+      if (move) {
+        setLastMove({ from, to });
+        setSelectedPos(null);
+        setLegalMoves([]);
+        setPendingPromotion(null);
+        forceRender();
+      }
+    },
+    [board, forceRender]
+  );
+
   // Клик по клетке
   const handleSquareClick = useCallback(
     (row: number, col: number) => {
+      // Если открыто окно превращения — игнорируем клики по доске
+      if (pendingPromotion) return;
+
       const clickedPos = { row, col };
 
-      // Если есть выбранная фигура и кликнули на легальный ход — делаем ход
+      // Если есть выбранная фигура и кликнули на легальный ход
       if (selectedPos) {
         const isLegalTarget = legalMoves.some(
           (m) => m.col === col && m.row === row
         );
 
         if (isLegalTarget) {
-          const move = board.makeMove(selectedPos, clickedPos);
-          if (move) {
-            setLastMove({ from: selectedPos, to: clickedPos });
-            setSelectedPos(null);
-            setLegalMoves([]);
-            forceRender();
+          // Проверяем, нужно ли превращение
+          if (board.needsPromotion(selectedPos, clickedPos)) {
+            // Открываем диалог выбора фигуры
+            setPendingPromotion({ from: selectedPos, to: clickedPos });
             return;
           }
+
+          executeMove(selectedPos, clickedPos);
+          return;
         }
       }
 
@@ -54,7 +81,16 @@ function App() {
         setLegalMoves([]);
       }
     },
-    [board, selectedPos, legalMoves, forceRender]
+    [board, selectedPos, legalMoves, pendingPromotion, executeMove]
+  );
+
+  // Обработчик выбора фигуры для превращения
+  const handlePromotionChoice = useCallback(
+    (pieceType: PieceType) => {
+      if (!pendingPromotion) return;
+      executeMove(pendingPromotion.from, pendingPromotion.to, pieceType);
+    },
+    [pendingPromotion, executeMove]
   );
 
   // Проверка статуса игры
@@ -87,6 +123,11 @@ function App() {
 
   // Получить состояние доски
   const boardState = board.getBoardState();
+
+  // Цвет пешки, ожидающей превращения
+  const promotionColor = pendingPromotion
+    ? board.getPieceAt(pendingPromotion.from)?.color ?? 'white'
+    : 'white';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-4 gap-4">
@@ -123,7 +164,7 @@ function App() {
         </div>
 
         {/* Доска */}
-        <div className="border-4 border-amber-900 rounded shadow-2xl">
+        <div className="border-4 border-amber-900 rounded shadow-2xl relative">
           {ranks.map((rank, rowIndex) => (
             <div key={rank} className="flex">
               {files.map((file, colIndex) => {
@@ -184,6 +225,34 @@ function App() {
               })}
             </div>
           ))}
+
+          {/* Модальное окно превращения пешки */}
+          {pendingPromotion && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 rounded">
+              <div className="bg-gray-800 border-2 border-amber-500 rounded-xl p-4 shadow-2xl">
+                <p className="text-white text-center text-sm font-semibold mb-3">
+                  Выберите фигуру
+                </p>
+                <div className="flex gap-2">
+                  {PROMOTION_PIECES.map((pieceType) => (
+                    <button
+                      key={pieceType}
+                      onClick={() => handlePromotionChoice(pieceType)}
+                      className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center
+                                 bg-amber-100 hover:bg-amber-300 rounded-lg
+                                 transition-colors duration-150
+                                 border-2 border-amber-700 hover:border-amber-400"
+                      title={pieceType}
+                    >
+                      <span className="text-3xl sm:text-4xl select-none">
+                        {PIECE_SYMBOLS[promotionColor][pieceType]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Цифры справа */}
@@ -221,7 +290,8 @@ function App() {
 
       {/* Подсказка */}
       <p className="text-gray-500 text-xs sm:text-sm text-center max-w-md">
-        Нажмите на фигуру, чтобы увидеть возможные ходы. Нажмите на подсвеченную клетку, чтобы сделать ход.
+        Нажмите на фигуру, чтобы увидеть возможные ходы. При достижении пешкой
+        противоположного края выберите фигуру для превращения.
       </p>
     </div>
   );

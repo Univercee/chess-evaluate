@@ -2,6 +2,7 @@ import {
   IChessBoard,
   IChessPiece,
   PieceColor,
+  PieceType,
   Position,
   Move,
   positionToNotation,
@@ -185,7 +186,18 @@ export class ChessBoard implements IChessBoard {
   }
 
   /** Выполнить ход */
-  makeMove(from: Position, to: Position): Move | null {
+  /** Проверить, нужно ли превращение пешки после хода на заданную клетку */
+  needsPromotion(from: Position, to: Position): boolean {
+    const piece = this.getPieceAt(from);
+    if (!piece || piece.type !== 'pawn') return false;
+
+    // Белая пешка превращается на 0-й строке (8-я горизонталь),
+    // чёрная — на 7-й строке (1-я горизонталь)
+    const promotionRow = piece.color === 'white' ? 0 : 7;
+    return to.row === promotionRow;
+  }
+
+  makeMove(from: Position, to: Position, promotion?: PieceType): Move | null {
     const piece = this.getPieceAt(from);
     if (!piece) return null;
     if (piece.color !== this.currentTurn) return null;
@@ -193,6 +205,22 @@ export class ChessBoard implements IChessBoard {
     const legalMoves = this.getLegalMoves(from);
     const isLegal = legalMoves.some(m => m.col === to.col && m.row === to.row);
     if (!isLegal) return null;
+
+    // Если пешка дошла до конца — требуется превращение
+    const requiresPromotion = this.needsPromotion(from, to);
+    if (requiresPromotion && !promotion) {
+      // Превращение не указано — возвращаем специальный результат,
+      // чтобы UI мог запросить выбор у пользователя
+      return null;
+    }
+
+    // Валидация типа превращения
+    if (requiresPromotion && promotion) {
+      const validPromotions: PieceType[] = ['queen', 'rook', 'bishop', 'knight'];
+      if (!validPromotions.includes(promotion)) {
+        return null;
+      }
+    }
 
     const capturedPiece = this.board[to.row][to.col];
     let isCapture = capturedPiece !== null;
@@ -219,6 +247,16 @@ export class ChessBoard implements IChessBoard {
     this.board[from.row][from.col] = null;
     piece.moveTo(to);
 
+    // Превращение пешки
+    let actualPromotion: PieceType | undefined;
+    if (requiresPromotion && promotion) {
+      actualPromotion = promotion;
+      // Создаём новую фигуру на месте пешки
+      const newPiece = this.createPiece(promotion, piece.color, to);
+      newPiece.hasMoved = true;
+      this.board[to.row][to.col] = newPiece;
+    }
+
     // Сбрасываем enPassantTarget и устанавливаем новый, если пешка сделала ход на 2 клетки
     this.enPassantTarget = null;
     if (piece.type === 'pawn' && Math.abs(to.row - from.row) === 2) {
@@ -236,6 +274,7 @@ export class ChessBoard implements IChessBoard {
       color: piece.color,
       isCapture,
       isEnPassant,
+      promotion: actualPromotion,
     };
 
     this.moveHistory.push(move);
