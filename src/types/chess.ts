@@ -58,6 +58,12 @@ export interface IChessPiece {
   moveTo(position: Position): void;
 }
 
+/** Статус игры */
+export type GameStatus =
+  | { type: 'playing'; turn: PieceColor; inCheck: boolean }
+  | { type: 'checkmate'; winner: PieceColor; loser: PieceColor }
+  | { type: 'stalemate' };
+
 /** Интерфейс для шахматной доски */
 export interface IChessBoard {
   /** Получить фигуру на клетке (или undefined) */
@@ -83,6 +89,15 @@ export interface IChessBoard {
 
   /** Получить клетку для взятия на проходе (или null) */
   getEnPassantTarget(): Position | null;
+
+  /** Проверить, объявлен ли мат игроку данного цвета */
+  isCheckmate(color: PieceColor): boolean;
+
+  /** Проверить, объявлен ли пат игроку данного цвета */
+  isStalemate(color: PieceColor): boolean;
+
+  /** Получить текущий статус игры */
+  getGameStatus(): GameStatus;
 }
 
 /** Unicode-символы фигур */

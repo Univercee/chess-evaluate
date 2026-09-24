@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { ChessBoard } from './classes/ChessBoard';
-import { Position, PieceType, PIECE_SYMBOLS } from './types/chess';
+import { Position, PieceType, PIECE_SYMBOLS, GameStatus } from './types/chess';
 
 /** Фигуры, доступные для превращения пешки */
 const PROMOTION_PIECES: PieceType[] = ['queen', 'rook', 'bishop', 'knight'];
@@ -44,9 +44,20 @@ function App() {
     [board, forceRender]
   );
 
+  // Статус игры через централизованный метод
+  const gameStatus: GameStatus = useMemo(() => {
+    return board.getGameStatus();
+  }, [board]);
+
+  // Флаг окончания игры
+  const isGameOver = gameStatus.type === 'checkmate' || gameStatus.type === 'stalemate';
+
   // Клик по клетке
   const handleSquareClick = useCallback(
     (row: number, col: number) => {
+      // Если игра окончена — игнорируем клики
+      if (isGameOver) return;
+
       // Если открыто окно превращения — игнорируем клики по доске
       if (pendingPromotion) return;
 
@@ -81,7 +92,7 @@ function App() {
         setLegalMoves([]);
       }
     },
-    [board, selectedPos, legalMoves, pendingPromotion, executeMove]
+    [board, selectedPos, legalMoves, pendingPromotion, executeMove, isGameOver]
   );
 
   // Обработчик выбора фигуры для превращения
@@ -93,28 +104,22 @@ function App() {
     [pendingPromotion, executeMove]
   );
 
-  // Проверка статуса игры
-  const gameStatus = useMemo(() => {
-    const turn = board.getCurrentTurn();
-    const inCheck = board.isKingInCheck(turn);
-    const checkmate = board.isCheckmate(turn);
-    const stalemate = board.isStalemate(turn);
-
-    if (checkmate) {
-      const winner = turn === 'white' ? 'Чёрные' : 'Белые';
-      return { text: `Мат! ${winner} победили!`, type: 'checkmate' as const };
+  // Текстовое описание статуса
+  const statusText = useMemo(() => {
+    switch (gameStatus.type) {
+      case 'checkmate': {
+        const winner = gameStatus.winner === 'white' ? 'Белые' : 'Чёрные';
+        return `Мат! ${winner} победили!`;
+      }
+      case 'stalemate':
+        return 'Пат! Ничья.';
+      case 'playing':
+        if (gameStatus.inCheck) {
+          return `Шах! Ход ${gameStatus.turn === 'white' ? 'белых' : 'чёрных'}`;
+        }
+        return `Ход ${gameStatus.turn === 'white' ? 'белых' : 'чёрных'}`;
     }
-    if (stalemate) {
-      return { text: 'Пат! Ничья.', type: 'stalemate' as const };
-    }
-    if (inCheck) {
-      return { text: `Шах! Ход ${turn === 'white' ? 'белых' : 'чёрных'}`, type: 'check' as const };
-    }
-    return {
-      text: `Ход ${turn === 'white' ? 'белых' : 'чёрных'}`,
-      type: 'normal' as const,
-    };
-  }, [board]);
+  }, [gameStatus]);
 
   // Сброс игры
   const handleReset = useCallback(() => {
@@ -142,12 +147,12 @@ function App() {
             ? 'bg-red-600 text-white'
             : gameStatus.type === 'stalemate'
             ? 'bg-yellow-500 text-black'
-            : gameStatus.type === 'check'
+            : gameStatus.type === 'playing' && gameStatus.inCheck
             ? 'bg-orange-500 text-white'
             : 'bg-gray-700 text-gray-200'
         }`}
       >
-        {gameStatus.text}
+        {statusText}
       </div>
 
       <div className="flex items-center">

@@ -5,6 +5,7 @@ import {
   PieceType,
   Position,
   Move,
+  GameStatus,
   positionToNotation,
 } from '../types/chess';
 import { ChessPiece } from './ChessPiece';
@@ -355,19 +356,42 @@ export class ChessBoard implements IChessBoard {
     return this.board;
   }
 
-  /** Проверить мат */
+  /** Проверить мат: король под шахом И нет ни одного легального хода */
   isCheckmate(color: PieceColor): boolean {
     if (!this.isKingInCheck(color)) return false;
     return !this.hasAnyLegalMove(color);
   }
 
-  /** Проверить пат */
+  /** Проверить пат: король НЕ под шахом, но нет ни одного легального хода */
   isStalemate(color: PieceColor): boolean {
     if (this.isKingInCheck(color)) return false;
     return !this.hasAnyLegalMove(color);
   }
 
-  /** Есть ли хотя бы один легальный ход */
+  /** Получить текущий статус игры */
+  getGameStatus(): GameStatus {
+    const turn = this.getCurrentTurn();
+
+    // Сначала проверяем мат — если король под шахом и нет ходов
+    if (this.isCheckmate(turn)) {
+      const winner: PieceColor = turn === 'white' ? 'black' : 'white';
+      return { type: 'checkmate', winner, loser: turn };
+    }
+
+    // Затем проверяем пат — если король не под шахом, но нет ходов
+    if (this.isStalemate(turn)) {
+      return { type: 'stalemate' };
+    }
+
+    // Игра продолжается
+    return {
+      type: 'playing',
+      turn,
+      inCheck: this.isKingInCheck(turn),
+    };
+  }
+
+  /** Есть ли хотя бы один легальный ход у игрока данного цвета */
   private hasAnyLegalMove(color: PieceColor): boolean {
     const pieces = this.getPiecesByColor(color);
     for (const piece of pieces) {
