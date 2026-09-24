@@ -12,7 +12,7 @@ function App() {
   // Создаём доску один раз
   const [board] = useState(() => new ChessBoard());
   // Состояние для ререндера
-  const [, setRenderTrigger] = useState(0);
+  const [renderTrigger, setRenderTrigger] = useState(0);
   // Выбранная клетка
   const [selectedPos, setSelectedPos] = useState<Position | null>(null);
   // Легальные ходы для выбранной фигуры
@@ -47,7 +47,7 @@ function App() {
   // Статус игры через централизованный метод
   const gameStatus: GameStatus = useMemo(() => {
     return board.getGameStatus();
-  }, [board]);
+  }, [board, renderTrigger]);
 
   // Флаг окончания игры
   const isGameOver = gameStatus.type === 'checkmate' || gameStatus.type === 'stalemate';
