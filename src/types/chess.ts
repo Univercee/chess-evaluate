@@ -100,7 +100,11 @@ export interface IChessBoard {
   getGameStatus(): GameStatus;
 }
 
-/** Unicode-символы фигур */
+/**
+ * Unicode-символы фигур.
+ * Все фигуры используют один набор символов (белые),
+ * раскраска выполняется через CSS (белые — белые, чёрные — чёрные).
+ */
 export const PIECE_SYMBOLS: Record<PieceColor, Record<PieceType, string>> = {
   white: {
     king: '♔',
@@ -111,12 +115,12 @@ export const PIECE_SYMBOLS: Record<PieceColor, Record<PieceType, string>> = {
     pawn: '♙',
   },
   black: {
-    king: '♚',
-    queen: '♛',
-    rook: '♜',
-    bishop: '♝',
-    knight: '♞',
-    pawn: '♟',
+    king: '♔',
+    queen: '♕',
+    rook: '♖',
+    bishop: '♗',
+    knight: '♘',
+    pawn: '♙',
   },
 };
 

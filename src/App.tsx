@@ -219,7 +219,10 @@ function App() {
                       <span
                         className={`
                           text-2xl sm:text-3xl md:text-4xl select-none
-                          ${piece.color === 'white' ? 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]' : 'drop-shadow-[0_1px_1px_rgba(255,255,255,0.3)]'}
+                          ${piece.color === 'white'
+                            ? 'text-white [text-shadow:_0_0_2px_#000,_0_0_2px_#000,_0_0_2px_#000]'
+                            : 'text-black [text-shadow:_0_0_1px_#fff,_0_0_1px_#fff]'
+                          }
                         `}
                       >
                         {piece.getSymbol()}
@@ -249,7 +252,13 @@ function App() {
                                  border-2 border-amber-700 hover:border-amber-400"
                       title={pieceType}
                     >
-                      <span className="text-3xl sm:text-4xl select-none">
+                      <span
+                        className={`text-3xl sm:text-4xl select-none ${
+                          promotionColor === 'white'
+                            ? 'text-white [text-shadow:_0_0_2px_#000,_0_0_2px_#000,_0_0_2px_#000]'
+                            : 'text-black [text-shadow:_0_0_1px_#fff,_0_0_1px_#fff]'
+                        }`}
+                      >
                         {PIECE_SYMBOLS[promotionColor][pieceType]}
                       </span>
                     </button>
