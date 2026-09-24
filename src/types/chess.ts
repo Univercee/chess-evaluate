@@ -45,6 +45,8 @@ export interface IChessPiece {
   position: Position;
   /** Делала ли фигура ход (важно для рокировки и пешек) */
   hasMoved: boolean;
+  /** Является ли эта фигура превращённой пешкой (важно для рокировки) */
+  readonly isPromotedPawn: boolean;
 
   /** Получить Unicode-символ фигуры */
   getSymbol(): string;

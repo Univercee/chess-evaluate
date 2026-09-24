@@ -49,13 +49,18 @@ export class ChessBoard implements IChessBoard {
   }
 
   /** Фабричный метод создания фигуры */
-  private createPiece(type: string, color: PieceColor, position: Position): IChessPiece {
+  private createPiece(
+    type: string,
+    color: PieceColor,
+    position: Position,
+    isPromotedPawn: boolean = false
+  ): IChessPiece {
     switch (type) {
       case 'king': return new King(color, position);
-      case 'queen': return new Queen(color, position);
-      case 'rook': return new Rook(color, position);
-      case 'bishop': return new Bishop(color, position);
-      case 'knight': return new Knight(color, position);
+      case 'queen': return new Queen(color, position, isPromotedPawn);
+      case 'rook': return new Rook(color, position, isPromotedPawn);
+      case 'bishop': return new Bishop(color, position, isPromotedPawn);
+      case 'knight': return new Knight(color, position, isPromotedPawn);
       case 'pawn': return new Pawn(color, position);
       default: throw new Error(`Unknown piece type: ${type}`);
     }
@@ -144,6 +149,32 @@ export class ChessBoard implements IChessBoard {
   private isMoveLegal(from: Position, to: Position, color: PieceColor): boolean {
     const movingPiece = this.board[from.row][from.col];
     if (!movingPiece) return false;
+
+    const opponentColor: PieceColor = color === 'white' ? 'black' : 'white';
+
+    // Специальная проверка для рокировки
+    if (movingPiece.type === 'king' && Math.abs(to.col - from.col) === 2) {
+      // Король не должен быть под шахом в момент рокировки
+      if (this.isKingInCheck(color)) {
+        return false;
+      }
+
+      // Определяем направление рокировки
+      const direction = to.col > from.col ? 1 : -1;
+
+      // Проверяем, что король не проходит через атакованное поле
+      const intermediateSquare = { col: from.col + direction, row: from.row };
+      if (this.isSquareAttackedBy(intermediateSquare, opponentColor)) {
+        return false;
+      }
+
+      // Проверяем, что конечное поле не под атакой
+      if (this.isSquareAttackedBy(to, opponentColor)) {
+        return false;
+      }
+
+      return true;
+    }
 
     // Сохраняем состояние
     const capturedPiece = this.board[to.row][to.col];
@@ -251,10 +282,30 @@ export class ChessBoard implements IChessBoard {
     let actualPromotion: PieceType | undefined;
     if (requiresPromotion && promotion) {
       actualPromotion = promotion;
-      // Создаём новую фигуру на месте пешки
-      const newPiece = this.createPiece(promotion, piece.color, to);
+      // Создаём новую фигуру на месте пешки (isPromotedPawn = true)
+      const newPiece = this.createPiece(promotion, piece.color, to, true);
       newPiece.hasMoved = true;
       this.board[to.row][to.col] = newPiece;
+    }
+
+    // Рокировка — перемещаем ладью
+    let isCastling: 'kingside' | 'queenside' | undefined;
+    if (piece.type === 'king' && Math.abs(to.col - from.col) === 2) {
+      if (to.col > from.col) {
+        // Короткая рокировка
+        isCastling = 'kingside';
+        const rook = this.board[from.row][7] as IChessPiece;
+        this.board[from.row][to.col - 1] = rook;
+        this.board[from.row][7] = null;
+        rook.moveTo({ col: to.col - 1, row: from.row });
+      } else {
+        // Длинная рокировка
+        isCastling = 'queenside';
+        const rook = this.board[from.row][0] as IChessPiece;
+        this.board[from.row][to.col + 1] = rook;
+        this.board[from.row][0] = null;
+        rook.moveTo({ col: to.col + 1, row: from.row });
+      }
     }
 
     // Сбрасываем enPassantTarget и устанавливаем новый, если пешка сделала ход на 2 клетки
@@ -275,6 +326,7 @@ export class ChessBoard implements IChessBoard {
       isCapture,
       isEnPassant,
       promotion: actualPromotion,
+      isCastling,
     };
 
     this.moveHistory.push(move);

@@ -16,11 +16,18 @@ export abstract class ChessPiece implements IChessPiece {
   readonly color: PieceColor;
   position: Position;
   hasMoved: boolean = false;
+  readonly isPromotedPawn: boolean;
 
-  constructor(type: PieceType, color: PieceColor, position: Position) {
+  constructor(
+    type: PieceType,
+    color: PieceColor,
+    position: Position,
+    isPromotedPawn: boolean = false
+  ) {
     this.type = type;
     this.color = color;
     this.position = { ...position };
+    this.isPromotedPawn = isPromotedPawn;
   }
 
   getSymbol(): string {

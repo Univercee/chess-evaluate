@@ -1,7 +1,7 @@
 import { IChessBoard, Position } from '../types/chess';
 import { ChessPiece } from './ChessPiece';
 
-/** Король — ходит на одну клетку в любом направлении */
+/** Король — ходит на одну клетку в любом направлении + рокировка */
 export class King extends ChessPiece {
   constructor(color: 'white' | 'black', position: Position) {
     super('king', color, position);
@@ -13,14 +13,69 @@ export class King extends ChessPiece {
       [-1,  0],          [1,  0],
       [-1,  1], [0,  1], [1,  1],
     ];
-    return this.getSteppingMoves(board, directions);
+    const moves = this.getSteppingMoves(board, directions);
+
+    // Рокировка
+    if (!this.hasMoved) {
+      const row = this.position.row;
+      const col = this.position.col;
+
+      // Короткая рокировка (королевская сторона, ладья на col=7)
+      const kingsideRook = board.getPieceAt({ col: 7, row });
+      if (
+        kingsideRook &&
+        kingsideRook.type === 'rook' &&
+        kingsideRook.color === this.color &&
+        !kingsideRook.hasMoved &&
+        !kingsideRook.isPromotedPawn
+      ) {
+        // Проверяем, что клетки между королём и ладьёй пусты
+        const betweenKingside = [
+          { col: col + 1, row },
+          { col: col + 2, row },
+        ];
+        const pathClear = betweenKingside.every(
+          (pos) => board.getPieceAt(pos) === null
+        );
+        if (pathClear) {
+          // Целевая клетка рокировки (король перемещается на 2 клетки вправо)
+          moves.push({ col: col + 2, row });
+        }
+      }
+
+      // Длинная рокировка (ферзевая сторона, ладья на col=0)
+      const queensideRook = board.getPieceAt({ col: 0, row });
+      if (
+        queensideRook &&
+        queensideRook.type === 'rook' &&
+        queensideRook.color === this.color &&
+        !queensideRook.hasMoved &&
+        !queensideRook.isPromotedPawn
+      ) {
+        // Проверяем, что клетки между королём и ладьёй пусты
+        const betweenQueenside = [
+          { col: col - 1, row },
+          { col: col - 2, row },
+          { col: col - 3, row },
+        ];
+        const pathClear = betweenQueenside.every(
+          (pos) => board.getPieceAt(pos) === null
+        );
+        if (pathClear) {
+          // Целевая клетка рокировки (король перемещается на 2 клетки влево)
+          moves.push({ col: col - 2, row });
+        }
+      }
+    }
+
+    return moves;
   }
 }
 
 /** Ферзь — сочетает ходы ладьи и слона */
 export class Queen extends ChessPiece {
-  constructor(color: 'white' | 'black', position: Position) {
-    super('queen', color, position);
+  constructor(color: 'white' | 'black', position: Position, isPromotedPawn: boolean = false) {
+    super('queen', color, position, isPromotedPawn);
   }
 
   getPossibleMoves(board: IChessBoard): Position[] {
@@ -35,8 +90,8 @@ export class Queen extends ChessPiece {
 
 /** Ладья — ходит по горизонтали и вертикали */
 export class Rook extends ChessPiece {
-  constructor(color: 'white' | 'black', position: Position) {
-    super('rook', color, position);
+  constructor(color: 'white' | 'black', position: Position, isPromotedPawn: boolean = false) {
+    super('rook', color, position, isPromotedPawn);
   }
 
   getPossibleMoves(board: IChessBoard): Position[] {
@@ -49,8 +104,8 @@ export class Rook extends ChessPiece {
 
 /** Слон — ходит по диагоналям */
 export class Bishop extends ChessPiece {
-  constructor(color: 'white' | 'black', position: Position) {
-    super('bishop', color, position);
+  constructor(color: 'white' | 'black', position: Position, isPromotedPawn: boolean = false) {
+    super('bishop', color, position, isPromotedPawn);
   }
 
   getPossibleMoves(board: IChessBoard): Position[] {
@@ -63,8 +118,8 @@ export class Bishop extends ChessPiece {
 
 /** Конь — ходит буквой «Г» */
 export class Knight extends ChessPiece {
-  constructor(color: 'white' | 'black', position: Position) {
-    super('knight', color, position);
+  constructor(color: 'white' | 'black', position: Position, isPromotedPawn: boolean = false) {
+    super('knight', color, position, isPromotedPawn);
   }
 
   getPossibleMoves(board: IChessBoard): Position[] {
