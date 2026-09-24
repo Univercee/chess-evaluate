@@ -1,84 +1,228 @@
+import { useState, useCallback, useMemo } from 'react';
+import { ChessBoard } from './classes/ChessBoard';
+import { Position, positionToNotation } from './types/chess';
+
 function App() {
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
+  // Создаём доску один раз
+  const [board] = useState(() => new ChessBoard());
+  // Состояние для ререндера
+  const [, setRenderTrigger] = useState(0);
+  // Выбранная клетка
+  const [selectedPos, setSelectedPos] = useState<Position | null>(null);
+  // Легальные ходы для выбранной фигуры
+  const [legalMoves, setLegalMoves] = useState<Position[]>([]);
+  // Последний ход (для подсветки)
+  const [lastMove, setLastMove] = useState<{ from: Position; to: Position } | null>(null);
+
+  const forceRender = useCallback(() => {
+    setRenderTrigger((prev) => prev + 1);
+  }, []);
+
+  // Клик по клетке
+  const handleSquareClick = useCallback(
+    (row: number, col: number) => {
+      const clickedPos = { row, col };
+
+      // Если есть выбранная фигура и кликнули на легальный ход — делаем ход
+      if (selectedPos) {
+        const isLegalTarget = legalMoves.some(
+          (m) => m.col === col && m.row === row
+        );
+
+        if (isLegalTarget) {
+          const move = board.makeMove(selectedPos, clickedPos);
+          if (move) {
+            setLastMove({ from: selectedPos, to: clickedPos });
+            setSelectedPos(null);
+            setLegalMoves([]);
+            forceRender();
+            return;
+          }
+        }
+      }
+
+      // Выбираем фигуру
+      const piece = board.getPieceAt(clickedPos);
+      if (piece && piece.color === board.getCurrentTurn()) {
+        setSelectedPos(clickedPos);
+        setLegalMoves(board.getLegalMoves(clickedPos));
+      } else {
+        setSelectedPos(null);
+        setLegalMoves([]);
+      }
+    },
+    [board, selectedPos, legalMoves, forceRender]
+  );
+
+  // Проверка статуса игры
+  const gameStatus = useMemo(() => {
+    const turn = board.getCurrentTurn();
+    const inCheck = board.isKingInCheck(turn);
+    const checkmate = board.isCheckmate(turn);
+    const stalemate = board.isStalemate(turn);
+
+    if (checkmate) {
+      const winner = turn === 'white' ? 'Чёрные' : 'Белые';
+      return { text: `Мат! ${winner} победили!`, type: 'checkmate' as const };
+    }
+    if (stalemate) {
+      return { text: 'Пат! Ничья.', type: 'stalemate' as const };
+    }
+    if (inCheck) {
+      return { text: `Шах! Ход ${turn === 'white' ? 'белых' : 'чёрных'}`, type: 'check' as const };
+    }
+    return {
+      text: `Ход ${turn === 'white' ? 'белых' : 'чёрных'}`,
+      type: 'normal' as const,
+    };
+  }, [board]);
+
+  // Сброс игры
+  const handleReset = useCallback(() => {
+    window.location.reload();
+  }, []);
+
+  // Получить состояние доски
+  const boardState = board.getBoardState();
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center p-4">
-      <div className="flex flex-col items-center">
-        <h1 className="text-3xl font-bold text-white mb-6 tracking-wide">
-          ♟ Шахматная доска
-        </h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-4 gap-4">
+      <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-wide">
+        ♟ Шахматная доска
+      </h1>
 
-        <div className="flex items-center">
-          {/* Цифры слева (1-8) */}
-          <div className="flex flex-col mr-2">
-            {ranks.map((rank) => (
-              <div
-                key={rank}
-                className="flex items-center justify-center text-gray-300 font-semibold text-sm sm:text-base"
-                style={{ width: '2rem', height: '4rem' }}
-              >
-                {rank}
-              </div>
-            ))}
-          </div>
+      {/* Статус */}
+      <div
+        className={`px-4 py-2 rounded-lg font-semibold text-sm sm:text-base ${
+          gameStatus.type === 'checkmate'
+            ? 'bg-red-600 text-white'
+            : gameStatus.type === 'stalemate'
+            ? 'bg-yellow-500 text-black'
+            : gameStatus.type === 'check'
+            ? 'bg-orange-500 text-white'
+            : 'bg-gray-700 text-gray-200'
+        }`}
+      >
+        {gameStatus.text}
+      </div>
 
-          {/* Доска */}
-          <div className="border-4 border-amber-900 rounded shadow-2xl">
-            {ranks.map((rank, rowIndex) => (
-              <div key={rank} className="flex">
-                {files.map((file, colIndex) => {
-                  const isLight = (rowIndex + colIndex) % 2 === 0;
-                  return (
-                    <div
-                      key={`${file}${rank}`}
-                      className={`
-                        w-12 h-12 sm:w-16 sm:h-16
-                        flex items-center justify-center
-                        transition-colors duration-150
-                        ${isLight ? 'bg-amber-100' : 'bg-amber-800'}
-                      `}
-                    >
-                      {/* Клетка пустая — просто цвет */}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-
-          {/* Цифры справа (1-8) */}
-          <div className="flex flex-col ml-2">
-            {ranks.map((rank) => (
-              <div
-                key={rank}
-                className="flex items-center justify-center text-gray-300 font-semibold text-sm sm:text-base"
-                style={{ width: '2rem', height: '4rem' }}
-              >
-                {rank}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Буквы снизу (a-h) */}
-        <div className="flex mt-2 ml-10">
-          {files.map((file) => (
+      <div className="flex items-center">
+        {/* Цифры слева */}
+        <div className="flex flex-col mr-1 sm:mr-2">
+          {ranks.map((rank) => (
             <div
-              key={file}
-              className="flex items-center justify-center text-gray-300 font-semibold text-sm sm:text-base"
-              style={{ width: '4rem', height: '2rem' }}
+              key={rank}
+              className="flex items-center justify-center text-gray-400 font-semibold text-xs sm:text-sm w-5 sm:w-7 h-10 sm:h-14 md:h-16"
             >
-              {file}
+              {rank}
             </div>
           ))}
         </div>
 
-        {/* Подпись */}
-        <p className="text-gray-500 text-sm mt-6">
-          Пустая доска с маркировкой a–h, 1–8
-        </p>
+        {/* Доска */}
+        <div className="border-4 border-amber-900 rounded shadow-2xl">
+          {ranks.map((rank, rowIndex) => (
+            <div key={rank} className="flex">
+              {files.map((file, colIndex) => {
+                const isLight = (rowIndex + colIndex) % 2 === 0;
+                const piece = boardState[rowIndex][colIndex];
+                const isSelected =
+                  selectedPos?.row === rowIndex && selectedPos?.col === colIndex;
+                const isLegalTarget = legalMoves.some(
+                  (m) => m.row === rowIndex && m.col === colIndex
+                );
+                const isLastMoveSquare =
+                  lastMove &&
+                  ((lastMove.from.row === rowIndex && lastMove.from.col === colIndex) ||
+                    (lastMove.to.row === rowIndex && lastMove.to.col === colIndex));
+
+                // Подсветка клетки
+                let bgClass = isLight ? 'bg-amber-100' : 'bg-amber-800';
+                if (isSelected) {
+                  bgClass = 'bg-sky-400';
+                } else if (isLastMoveSquare) {
+                  bgClass = isLight ? 'bg-yellow-200' : 'bg-yellow-600';
+                }
+
+                return (
+                  <div
+                    key={`${file}${rank}`}
+                    className={`
+                      w-10 h-10 sm:w-14 sm:h-14 md:w-16 md:h-16
+                      flex items-center justify-center
+                      cursor-pointer relative
+                      transition-colors duration-100
+                      ${bgClass}
+                      hover:brightness-110
+                    `}
+                    onClick={() => handleSquareClick(rowIndex, colIndex)}
+                  >
+                    {/* Маркер легального хода */}
+                    {isLegalTarget && !piece && (
+                      <div className="absolute w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-black/20" />
+                    )}
+                    {isLegalTarget && piece && (
+                      <div className="absolute inset-0 border-4 border-black/30 rounded-sm" />
+                    )}
+
+                    {/* Фигура */}
+                    {piece && (
+                      <span
+                        className={`
+                          text-2xl sm:text-3xl md:text-4xl select-none
+                          ${piece.color === 'white' ? 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]' : 'drop-shadow-[0_1px_1px_rgba(255,255,255,0.3)]'}
+                        `}
+                      >
+                        {piece.getSymbol()}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Цифры справа */}
+        <div className="flex flex-col ml-1 sm:ml-2">
+          {ranks.map((rank) => (
+            <div
+              key={rank}
+              className="flex items-center justify-center text-gray-400 font-semibold text-xs sm:text-sm w-5 sm:w-7 h-10 sm:h-14 md:h-16"
+            >
+              {rank}
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Буквы снизу */}
+      <div className="flex ml-6 sm:ml-9">
+        {files.map((file) => (
+          <div
+            key={file}
+            className="flex items-center justify-center text-gray-400 font-semibold text-xs sm:text-sm w-10 sm:w-14 md:w-16 h-5 sm:h-6"
+          >
+            {file}
+          </div>
+        ))}
+      </div>
+
+      {/* Кнопка сброса */}
+      <button
+        onClick={handleReset}
+        className="mt-2 px-5 py-2 bg-amber-700 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors shadow-lg"
+      >
+        Новая игра
+      </button>
+
+      {/* Подсказка */}
+      <p className="text-gray-500 text-xs sm:text-sm text-center max-w-md">
+        Нажмите на фигуру, чтобы увидеть возможные ходы. Нажмите на подсвеченную клетку, чтобы сделать ход.
+      </p>
     </div>
   );
 }
