@@ -116,6 +116,22 @@ export class Pawn extends ChessPiece {
       }
     }
 
+    // Взятие на проходе (en passant)
+    const enPassantTarget = board.getEnPassantTarget();
+    if (enPassantTarget !== null) {
+      // Пешка может взять на проходе, если цель находится на диагонали от текущей позиции
+      const targetCol = enPassantTarget.col;
+      const targetRow = enPassantTarget.row;
+
+      // Цель должна быть на одну клетку вперёд и на одну клетку в сторону
+      if (
+        targetRow === row + direction &&
+        Math.abs(targetCol - col) === 1
+      ) {
+        moves.push(enPassantTarget);
+      }
+    }
+
     return moves;
   }
 }

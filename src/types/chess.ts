@@ -78,6 +78,9 @@ export interface IChessBoard {
 
   /** Определить, чей ход */
   getCurrentTurn(): PieceColor;
+
+  /** Получить клетку для взятия на проходе (или null) */
+  getEnPassantTarget(): Position | null;
 }
 
 /** Unicode-символы фигур */

@@ -20,11 +20,14 @@ export class ChessBoard implements IChessBoard {
   private currentTurn: PieceColor;
   /** История ходов */
   private moveHistory: Move[];
+  /** Клетка, на которую можно взять на проходе (или null) */
+  private enPassantTarget: Position | null;
 
   constructor() {
     this.board = Array.from({ length: 8 }, () => Array(8).fill(null));
     this.currentTurn = 'white';
     this.moveHistory = [];
+    this.enPassantTarget = null;
     this.setupInitialPosition();
   }
 
@@ -138,9 +141,29 @@ export class ChessBoard implements IChessBoard {
 
   /** Проверить легальность хода (не оставляет ли короля под шахом) */
   private isMoveLegal(from: Position, to: Position, color: PieceColor): boolean {
+    const movingPiece = this.board[from.row][from.col];
+    if (!movingPiece) return false;
+
     // Сохраняем состояние
     const capturedPiece = this.board[to.row][to.col];
-    const movingPiece = this.board[from.row][from.col];
+
+    // Проверяем взятие на проходе
+    let enPassantCapturedPiece: IChessPiece | null = null;
+    let enPassantCapturedPos: Position | null = null;
+
+    if (
+      movingPiece.type === 'pawn' &&
+      this.enPassantTarget !== null &&
+      to.col === this.enPassantTarget.col &&
+      to.row === this.enPassantTarget.row &&
+      capturedPiece === null
+    ) {
+      // Это взятие на проходе — нужно удалить пешку противника
+      const capturedPawnRow = movingPiece.color === 'white' ? to.row + 1 : to.row - 1;
+      enPassantCapturedPos = { col: to.col, row: capturedPawnRow };
+      enPassantCapturedPiece = this.board[capturedPawnRow][to.col];
+      this.board[capturedPawnRow][to.col] = null;
+    }
 
     // Выполняем ход временно
     this.board[to.row][to.col] = movingPiece;
@@ -152,6 +175,11 @@ export class ChessBoard implements IChessBoard {
     // Откатываем ход
     this.board[from.row][from.col] = movingPiece;
     this.board[to.row][to.col] = capturedPiece;
+
+    // Откатываем взятие на проходе
+    if (enPassantCapturedPos && enPassantCapturedPiece) {
+      this.board[enPassantCapturedPos.row][enPassantCapturedPos.col] = enPassantCapturedPiece;
+    }
 
     return !inCheck;
   }
@@ -167,12 +195,39 @@ export class ChessBoard implements IChessBoard {
     if (!isLegal) return null;
 
     const capturedPiece = this.board[to.row][to.col];
-    const isCapture = capturedPiece !== null;
+    let isCapture = capturedPiece !== null;
+    let isEnPassant = false;
+
+    // Проверка взятия на проходе
+    if (
+      piece.type === 'pawn' &&
+      this.enPassantTarget !== null &&
+      to.col === this.enPassantTarget.col &&
+      to.row === this.enPassantTarget.row &&
+      capturedPiece === null
+    ) {
+      isEnPassant = true;
+      isCapture = true;
+
+      // Удаляем взятую пешку (она находится на той же колонке, но на строке берущей пешки)
+      const capturedPawnRow = piece.color === 'white' ? to.row + 1 : to.row - 1;
+      this.board[capturedPawnRow][to.col] = null;
+    }
 
     // Выполняем ход
     this.board[to.row][to.col] = piece;
     this.board[from.row][from.col] = null;
     piece.moveTo(to);
+
+    // Сбрасываем enPassantTarget и устанавливаем новый, если пешка сделала ход на 2 клетки
+    this.enPassantTarget = null;
+    if (piece.type === 'pawn' && Math.abs(to.row - from.row) === 2) {
+      // Клетка между начальной и конечной позицией
+      this.enPassantTarget = {
+        col: from.col,
+        row: (from.row + to.row) / 2,
+      };
+    }
 
     const move: Move = {
       from: { ...from },
@@ -180,6 +235,7 @@ export class ChessBoard implements IChessBoard {
       pieceType: piece.type,
       color: piece.color,
       isCapture,
+      isEnPassant,
     };
 
     this.moveHistory.push(move);
@@ -190,6 +246,10 @@ export class ChessBoard implements IChessBoard {
 
   getCurrentTurn(): PieceColor {
     return this.currentTurn;
+  }
+
+  getEnPassantTarget(): Position | null {
+    return this.enPassantTarget;
   }
 
   /** Получить историю ходов в нотации */
