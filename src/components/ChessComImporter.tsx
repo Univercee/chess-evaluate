@@ -39,13 +39,16 @@ export function ChessComImporter({ onGameLoad }: ChessComImporterProps) {
 
     try {
       const response = await chessAPI.getPlayerMonthlyArchives(username);
-      const archiveUrls = response.body.archives || [];
+      const archiveUrls: string[] = response.body.archives || [];
       
       if (archiveUrls.length === 0) {
         throw new Error('No game archives found for this player.');
       }
 
-      setArchives(archiveUrls);
+      // Sort archives in reverse order (newest first)
+      const sortedArchives = [...archiveUrls].sort((a, b) => b.localeCompare(a));
+
+      setArchives(sortedArchives);
       setSelectedArchive(null);
       setGames([]);
       setCurrentPage(0);
@@ -70,9 +73,16 @@ export function ChessComImporter({ onGameLoad }: ChessComImporterProps) {
       const month = urlParts[urlParts.length - 1];
 
       const response = await chessAPI.getPlayerCompleteMonthlyArchives(username, year, month);
-      const gamesData = response.body.games || [];
+      const gamesData: GameData[] = response.body.games || [];
 
-      setGames(gamesData);
+      // Sort games in reverse order (newest first) by end_time
+      const sortedGames = [...gamesData].sort((a, b) => {
+        const timeA = a.end_time || 0;
+        const timeB = b.end_time || 0;
+        return timeB - timeA;
+      });
+
+      setGames(sortedGames);
       setCurrentPage(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch games');

@@ -51,11 +51,13 @@ const [error, setError] = useState<string | null>(null);
 1. **fetchArchives()**: Retrieves monthly archives for a player
    - Uses `chessAPI.getPlayerMonthlyArchives(username)`
    - Returns array of archive URLs
+   - **Sorted in reverse order (newest first)** using `localeCompare`
    - Updates `archives` state
 
 2. **fetchGamesFromArchive(archiveUrl)**: Loads games from selected archive
    - Parses year/month from archive URL
    - Uses `chessAPI.getPlayerCompleteMonthlyArchives(username, year, month)`
+   - **Sorted by `end_time` in reverse order (newest first)**
    - Updates `games` state with game data
 
 3. **loadGame(gameData)**: Imports selected game

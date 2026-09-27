@@ -59,8 +59,8 @@ Component for importing games from chess.com by username:
 - Handles loading and error states
 
 **Key Methods:**
-- `fetchArchives()`: Retrieves monthly archives for a player
-- `fetchGamesFromArchive(archiveUrl)`: Loads games from selected archive
+- `fetchArchives()`: Retrieves monthly archives, sorted newest first
+- `fetchGamesFromArchive(archiveUrl)`: Loads games from archive, sorted by end_time (newest first)
 - `loadGame(gameData)`: Imports selected game and calls onGameLoad callback
 - `getCurrentPageGames()`: Returns games for current page
 - `getTotalPages()`: Calculates total number of pages
