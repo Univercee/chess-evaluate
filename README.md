@@ -292,6 +292,56 @@ public/
     └── stockfish.wasm            # WebAssembly binary (optional)
 ```
 
+## 🐳 Docker Deployment
+
+### Quick Start with Docker Compose
+
+```bash
+# Build and start the container
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop the container
+docker-compose down
+```
+
+The application will be available at http://localhost:8080
+
+### Using Docker directly
+
+```bash
+# Build the image
+docker build -t chess-app:latest .
+
+# Run the container
+docker run -d -p 8080:80 --name chess-app chess-app:latest
+
+# Stop the container
+docker stop chess-app
+
+# Remove the container
+docker rm chess-app
+```
+
+### Docker Features
+
+- **Multi-stage build**: Optimized image size (~25MB)
+- **Nginx**: Production-ready web server with gzip compression
+- **Health check**: Automatic container health monitoring
+- **Security headers**: XSS protection, frame options, etc.
+- **Static asset caching**: 1-year cache for JS/CSS/images
+- **SPA routing**: All routes redirect to index.html
+
+See [DOCKER.md](DOCKER.md) for detailed deployment instructions, including:
+- Production deployment
+- SSL/TLS configuration
+- CI/CD integration
+- Monitoring and troubleshooting
+- Security best practices
+- Scaling with Docker Swarm
+
 ## Future Enhancements
 
 Potential features to add:

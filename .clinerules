@@ -246,3 +246,34 @@ if (game.isDraw()) { /* handle draw */ }
 const result = await analyze(fen, 15, 2000);
 // result.bestMove, result.score, result.depth
 ```
+
+## Docker Configuration
+
+### Files
+- `Dockerfile` - Multi-stage build (node:20-alpine → nginx:alpine)
+- `docker-compose.yml` - Container orchestration
+- `nginx.conf` - Nginx configuration for SPA
+- `.dockerignore` - Excludes unnecessary files from build context
+
+### Quick Start
+```bash
+# Using Docker Compose
+docker-compose up -d
+
+# Using Docker directly
+docker build -t chess-app:latest .
+docker run -d -p 8080:80 --name chess-app chess-app:latest
+```
+
+### Key Features
+- Multi-stage build for minimal image size (~25MB)
+- Nginx with gzip compression and security headers
+- Health check endpoint at `/health`
+- Static asset caching (1 year for JS/CSS/images)
+- SPA routing support (all routes → index.html)
+
+### Important Notes
+- Application runs on port 80 inside container
+- Default external port mapping: 8080:80
+- Stockfish files must be in `public/stockfish/` before building
+- See `DOCKER.md` for detailed deployment instructions
