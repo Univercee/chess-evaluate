@@ -33,6 +33,9 @@ export function useStockfish() {
     isThinking: false,
   });
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const workerRef = useRef<Worker | null>(null);
   const currentAnalysisRef = useRef<{
     resolve: ((result: StockfishAnalysis) => void) | null;
@@ -82,10 +85,18 @@ export function useStockfish() {
             return result;
           });
         }
+
+        // Check if engine is ready
+        if (line.startsWith('readyok')) {
+          setIsLoading(false);
+          setError(null);
+        }
       };
 
       workerRef.current.onerror = (error) => {
         console.error('Stockfish worker error:', error);
+        setError('Failed to load Stockfish engine. Please check if stockfish.js is present in public/stockfish/');
+        setIsLoading(false);
         setAnalysis((prev) => ({ ...prev, isThinking: false }));
       };
 
@@ -94,6 +105,8 @@ export function useStockfish() {
       workerRef.current.postMessage('isready');
     } catch (error) {
       console.error('Failed to initialize Stockfish:', error);
+      setError('Failed to initialize Stockfish engine. Web Workers may not be supported in your browser.');
+      setIsLoading(false);
     }
 
     // Cleanup
@@ -187,5 +200,7 @@ export function useStockfish() {
     analysis,
     analyze,
     stop,
+    isLoading,
+    error,
   };
 }
