@@ -10,7 +10,6 @@ import { useStockfish } from './hooks/useStockfish';
 function App() {
   const [game, setGame] = useState(new Chess());
   const [showAnalyzer, setShowAnalyzer] = useState(false);
-  const [showBestMove, setShowBestMove] = useState(true);
   const [boardWidth, setBoardWidth] = useState(600);
   
   // Imported game state
@@ -112,14 +111,14 @@ function App() {
 
   // Analyze position after each move (for both play and import modes)
   useEffect(() => {
-    if (viewMode !== 'analyzer' && showBestMove && !isEngineLoading && !engineError) {
+    if (viewMode !== 'analyzer' && !isEngineLoading && !engineError) {
       // Small delay to avoid rapid analysis
       const timer = setTimeout(() => {
         analyze(fen, 15, 2000);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [fen, viewMode, showBestMove, isEngineLoading, engineError, analyze]);
+  }, [fen, viewMode, isEngineLoading, engineError, analyze]);
 
   // Responsive board width
   useEffect(() => {
@@ -134,7 +133,7 @@ function App() {
 
   // Convert best move to custom arrows format
   const customArrows = useMemo(() => {
-    if (!showBestMove || !analysis.bestMove || analysis.isThinking) {
+    if (!analysis.bestMove || analysis.isThinking) {
       return [];
     }
 
@@ -144,7 +143,7 @@ function App() {
 
     // Arrow format: [startSquare, endSquare, color?]
     return [[startSquare, endSquare, '#22c55e']] as any;
-  }, [showBestMove, analysis.bestMove, analysis.isThinking]);
+  }, [analysis.bestMove, analysis.isThinking]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-4 gap-4">
@@ -184,19 +183,6 @@ function App() {
         >
           📥 Import
         </button>
-        {viewMode !== 'analyzer' && (
-          <button
-            onClick={() => setShowBestMove(!showBestMove)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              showBestMove
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-            title="Show best move arrow"
-          >
-            ➤ Best Move
-          </button>
-        )}
       </div>
 
       {/* Import View */}
@@ -210,9 +196,7 @@ function App() {
           {/* Chess Board with Evaluation Bar */}
           <div className="flex gap-2 items-stretch">
             {/* Evaluation Bar */}
-            {showBestMove && (
-              <EvaluationBar score={analysis.score} height={boardWidth} />
-            )}
+            <EvaluationBar score={analysis.score} height={boardWidth} />
 
             {/* Chess Board */}
             <div className="relative" style={{ width: `${boardWidth}px`, height: `${boardWidth}px` }}>
@@ -227,7 +211,7 @@ function App() {
                 }}
               />
               {/* Analysis Status */}
-              {showBestMove && analysis.isThinking && (
+              {analysis.isThinking && (
                 <div className="absolute top-2 right-2 bg-gray-800/90 text-white px-3 py-1 rounded-lg text-sm flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
                   Analyzing...
@@ -279,9 +263,7 @@ function App() {
           {/* Chess Board with Evaluation Bar */}
           <div className="flex gap-2 items-stretch">
             {/* Evaluation Bar */}
-            {showBestMove && (
-              <EvaluationBar score={analysis.score} height={boardWidth} />
-            )}
+            <EvaluationBar score={analysis.score} height={boardWidth} />
 
             {/* Chess Board */}
             <div className="relative" style={{ width: `${boardWidth}px`, height: `${boardWidth}px` }}>
@@ -296,14 +278,14 @@ function App() {
                 }}
               />
               {/* Analysis Status */}
-              {showBestMove && analysis.isThinking && (
+              {analysis.isThinking && (
                 <div className="absolute top-2 right-2 bg-gray-800/90 text-white px-3 py-1 rounded-lg text-sm flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
                   Analyzing...
                 </div>
               )}
               {/* Engine Error */}
-              {showBestMove && engineError && (
+              {engineError && (
                 <div className="absolute top-2 right-2 bg-red-800/90 text-white px-3 py-1 rounded-lg text-sm">
                   ⚠️ Engine error
                 </div>
@@ -312,7 +294,7 @@ function App() {
           </div>
 
           {/* Best Move Info */}
-          {showBestMove && analysis.bestMove && !analysis.isThinking && (
+          {analysis.bestMove && !analysis.isThinking && (
             <div className="bg-gray-800 rounded-lg p-4 max-w-[600px] w-full">
               <div className="flex justify-between items-center">
                 <div>

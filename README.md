@@ -31,11 +31,12 @@ This is a chess application built with React, TypeScript, and Tailwind CSS. It f
 - Best move arrow display
 
 ### 4. Evaluation Bar
-- Visual position assessment
+- Visual position assessment (always visible)
 - Vertical bar showing advantage
 - Numerical evaluation display
 - Smooth animations
 - Mate detection
+- Best move arrow always shown
 
 ## Architecture
 
