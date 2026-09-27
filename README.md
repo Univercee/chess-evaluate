@@ -22,6 +22,21 @@ This is a chess application built with React, TypeScript, and Tailwind CSS. It f
 - Search depth indicator
 - Loading and error states
 
+### 3. Game Import from Chess.com
+- Import games by pasting chess.com URL
+- Support for live and daily games
+- Move-by-move navigation
+- Position analysis for each move
+- Evaluation bar visualization
+- Best move arrow display
+
+### 4. Evaluation Bar
+- Visual position assessment
+- Vertical bar showing advantage
+- Numerical evaluation display
+- Smooth animations
+- Mate detection
+
 ## Architecture
 
 ### Main Components
@@ -29,9 +44,11 @@ This is a chess application built with React, TypeScript, and Tailwind CSS. It f
 #### `src/App.tsx`
 Main application component that manages:
 - Game state using `chess.js`
-- View mode switching (Play/Analyze)
+- View mode switching (Play/Analyze/Import)
 - Chess board rendering using `react-chessboard`
 - Game status detection
+- Imported game state and navigation
+- Integration with Stockfish analysis
 
 #### `src/components/ChessAnalyzer.tsx`
 Position analyzer component that:
@@ -39,6 +56,28 @@ Position analyzer component that:
 - Displays Stockfish analysis results
 - Shows loading and error states
 - Provides manual FEN input
+
+#### `src/components/ChessComImporter.tsx`
+Chess.com game import component that:
+- Accepts chess.com game URLs
+- Extracts game ID from various URL formats
+- Fetches game data via chess.com API
+- Parses PGN notation
+- Loads game into chess.js instance
+
+#### `src/components/MoveNavigator.tsx`
+Move navigation component that:
+- Displays move list with clickable moves
+- Provides navigation buttons (first, prev, next, last)
+- Shows current move counter
+- Highlights current move
+
+#### `src/components/EvaluationBar.tsx`
+Visual evaluation component that:
+- Displays position evaluation as vertical bar
+- Shows numerical evaluation (centipawns or mate)
+- Animates smoothly on evaluation changes
+- Adapts to board height
 
 #### `src/hooks/useStockfish.ts`
 Custom React hook for Stockfish integration:
@@ -108,6 +147,25 @@ npm run build
 3. Click "Analyze" button to get Stockfish evaluation
 4. View best move and evaluation score
 5. You can manually enter FEN positions
+
+### Importing Games from Chess.com
+
+1. Click "📥 Import" button to enter import mode
+2. Paste a chess.com game URL (e.g., `https://www.chess.com/game/live/123456789`)
+3. Click "Import Game" button
+4. The game loads and displays the starting position
+5. Use navigation controls (⏮ ◀ ▶ ⏭) to browse through moves
+6. Click any move in the move list to jump directly to it
+7. Stockfish analyzes each position automatically
+8. Evaluation bar and best move arrow update with each move
+
+**Supported URL formats:**
+- `https://www.chess.com/game/live/...`
+- `https://www.chess.com/game/daily/...`
+- `https://www.chess.com/live/game/...`
+- `https://www.chess.com/daily/game/...`
+
+See `CHESS_COM_IMPORT.md` for detailed documentation.
 
 ## Technical Details
 
@@ -201,31 +259,36 @@ interface StockfishAnalysis {
 
 ```
 src/
-├── App.tsx                    # Main application component
+├── App.tsx                       # Main application component
 ├── components/
-│   └── ChessAnalyzer.tsx      # Stockfish analyzer component
+│   ├── ChessAnalyzer.tsx         # Stockfish analyzer component
+│   ├── ChessComImporter.tsx      # Chess.com game import component
+│   ├── MoveNavigator.tsx         # Move navigation component
+│   └── EvaluationBar.tsx         # Visual evaluation bar component
 ├── hooks/
-│   └── useStockfish.ts        # Stockfish Web Worker hook
-├── main.tsx                   # Application entry point
-└── index.css                  # Global styles
+│   └── useStockfish.ts           # Stockfish Web Worker hook
+├── main.tsx                      # Application entry point
+└── index.css                     # Global styles
 
 public/
 └── stockfish/
-    ├── stockfish.js           # Stockfish engine (required)
-    └── stockfish.wasm         # WebAssembly binary (optional)
+    ├── stockfish.js              # Stockfish engine (required)
+    └── stockfish.wasm            # WebAssembly binary (optional)
 ```
 
 ## Future Enhancements
 
 Potential features to add:
-- Move history display
 - Position evaluation graph
 - Opening book integration
-- Game save/load (PGN format)
 - Multi-player support
 - Timer/clock functionality
 - Sound effects
 - Custom board themes
+- Keyboard shortcuts for move navigation
+- Game metadata display (players, date, event)
+- Export to PGN file
+- Share game link
 
 ## License
 

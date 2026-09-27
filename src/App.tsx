@@ -3,6 +3,8 @@ import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { ChessAnalyzer } from './components/ChessAnalyzer';
 import { EvaluationBar } from './components/EvaluationBar';
+import { ChessComImporter } from './components/ChessComImporter';
+import { MoveNavigator } from './components/MoveNavigator';
 import { useStockfish } from './hooks/useStockfish';
 
 function App() {
@@ -10,12 +12,28 @@ function App() {
   const [showAnalyzer, setShowAnalyzer] = useState(false);
   const [showBestMove, setShowBestMove] = useState(true);
   const [boardWidth, setBoardWidth] = useState(600);
+  
+  // Imported game state
+  const [importedGame, setImportedGame] = useState<Chess | null>(null);
+  const [importedMoves, setImportedMoves] = useState<string[]>([]);
+  const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<'play' | 'analyzer' | 'import'>('play');
 
   // Stockfish hook for best move analysis
   const { analysis, analyze, isLoading: isEngineLoading, error: engineError } = useStockfish();
 
-  // Get current FEN position
-  const fen = game.fen();
+  // Get current FEN position (use imported game position if viewing imported game)
+  const fen = useMemo(() => {
+    if (viewMode === 'import' && importedGame) {
+      // Replay moves up to currentMoveIndex
+      const tempGame = new Chess();
+      for (let i = 0; i < currentMoveIndex; i++) {
+        tempGame.move(importedMoves[i]);
+      }
+      return tempGame.fen();
+    }
+    return game.fen();
+  }, [viewMode, importedGame, importedMoves, currentMoveIndex, game]);
 
   // Make a move
   const makeMove = (sourceSquare: string, targetSquare: string, piece: string) => {
@@ -79,16 +97,29 @@ function App() {
     setGame(new Chess());
   };
 
-  // Analyze position after each move
+  // Handle imported game load
+  const handleGameLoad = (loadedGame: Chess, moves: string[]) => {
+    setImportedGame(loadedGame);
+    setImportedMoves(moves);
+    setCurrentMoveIndex(0);
+    setViewMode('import');
+  };
+
+  // Handle move navigation in imported game
+  const handleMoveChange = (index: number) => {
+    setCurrentMoveIndex(index);
+  };
+
+  // Analyze position after each move (for both play and import modes)
   useEffect(() => {
-    if (!showAnalyzer && showBestMove && !isEngineLoading && !engineError) {
+    if (viewMode !== 'analyzer' && showBestMove && !isEngineLoading && !engineError) {
       // Small delay to avoid rapid analysis
       const timer = setTimeout(() => {
         analyze(fen, 15, 2000);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [fen, showAnalyzer, showBestMove, isEngineLoading, engineError, analyze]);
+  }, [fen, viewMode, showBestMove, isEngineLoading, engineError, analyze]);
 
   // Responsive board width
   useEffect(() => {
@@ -124,9 +155,9 @@ function App() {
       {/* Mode Switcher */}
       <div className="flex gap-2 mb-4">
         <button
-          onClick={() => setShowAnalyzer(false)}
+          onClick={() => setViewMode('play')}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            !showAnalyzer
+            viewMode === 'play'
               ? 'bg-amber-600 text-white'
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           }`}
@@ -134,16 +165,26 @@ function App() {
           ♟ Play
         </button>
         <button
-          onClick={() => setShowAnalyzer(true)}
+          onClick={() => setViewMode('analyzer')}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            showAnalyzer
+            viewMode === 'analyzer'
               ? 'bg-amber-600 text-white'
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           }`}
         >
           🔍 Analyze
         </button>
-        {!showAnalyzer && (
+        <button
+          onClick={() => setViewMode('import')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            viewMode === 'import'
+              ? 'bg-amber-600 text-white'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+          }`}
+        >
+          📥 Import
+        </button>
+        {viewMode !== 'analyzer' && (
           <button
             onClick={() => setShowBestMove(!showBestMove)}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -158,8 +199,67 @@ function App() {
         )}
       </div>
 
-      {/* Board View */}
-      {!showAnalyzer && (
+      {/* Import View */}
+      {viewMode === 'import' && !importedGame && (
+        <ChessComImporter onGameLoad={handleGameLoad} />
+      )}
+
+      {/* Imported Game View */}
+      {viewMode === 'import' && importedGame && (
+        <>
+          {/* Chess Board with Evaluation Bar */}
+          <div className="flex gap-2 items-stretch">
+            {/* Evaluation Bar */}
+            {showBestMove && (
+              <EvaluationBar score={analysis.score} height={boardWidth} />
+            )}
+
+            {/* Chess Board */}
+            <div className="relative" style={{ width: `${boardWidth}px`, height: `${boardWidth}px` }}>
+              <Chessboard
+                position={fen}
+                boardWidth={boardWidth}
+                arePiecesDraggable={false}
+                customArrows={customArrows}
+                customBoardStyle={{
+                  borderRadius: '4px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                }}
+              />
+              {/* Analysis Status */}
+              {showBestMove && analysis.isThinking && (
+                <div className="absolute top-2 right-2 bg-gray-800/90 text-white px-3 py-1 rounded-lg text-sm flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
+                  Analyzing...
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Move Navigator */}
+          <MoveNavigator
+            game={importedGame}
+            moves={importedMoves}
+            currentMoveIndex={currentMoveIndex}
+            onMoveChange={handleMoveChange}
+          />
+
+          {/* Back to Import Button */}
+          <button
+            onClick={() => {
+              setImportedGame(null);
+              setImportedMoves([]);
+              setCurrentMoveIndex(0);
+            }}
+            className="mt-2 px-5 py-2 bg-amber-700 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors shadow-lg"
+          >
+            Import Another Game
+          </button>
+        </>
+      )}
+
+      {/* Play View */}
+      {viewMode === 'play' && (
         <>
           {/* Status */}
           <div
@@ -258,7 +358,7 @@ function App() {
       )}
 
       {/* Analyzer View */}
-      {showAnalyzer && (
+      {viewMode === 'analyzer' && (
         <ChessAnalyzer fen={fen} />
       )}
     </div>
