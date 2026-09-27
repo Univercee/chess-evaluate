@@ -8,8 +8,8 @@ import {
 } from '../types/chess';
 
 /**
- * Абстрактный базовый класс для всех шахматных фигур.
- * Все конкретные фигуры наследуются от этого класса.
+ * Abstract base class for all chess pieces.
+ * All concrete pieces inherit from this class.
  */
 export abstract class ChessPiece implements IChessPiece {
   readonly type: PieceType;
@@ -40,13 +40,13 @@ export abstract class ChessPiece implements IChessPiece {
   }
 
   /**
-   * Абстрактный метод — каждая фигура определяет свои возможные ходы.
+   * Abstract method — each piece defines its own possible moves.
    */
   abstract getPossibleMoves(board: IChessBoard): Position[];
 
   /**
-   * Вспомогательный метод: получить ходы по направлению (для ферзя, ладьи, слона).
-   * Движется в заданном направлении до упора или до препятствия.
+   * Helper method: get moves in a direction (for queen, rook, bishop).
+   * Moves in the given direction until blocked or hitting a piece.
    */
   protected getSlidingMoves(
     board: IChessBoard,
@@ -63,14 +63,14 @@ export abstract class ChessPiece implements IChessPiece {
         const piece = board.getPieceAt(target);
 
         if (piece === null) {
-          // Пустая клетка — можно идти
+          // Empty square — can move
           moves.push(target);
         } else if (piece.color !== this.color) {
-          // Вражеская фигура — можно взять и остановиться
+          // Enemy piece — can capture and stop
           moves.push(target);
           break;
         } else {
-          // Своя фигура — нельзя идти дальше
+          // Own piece — cannot move further
           break;
         }
 
@@ -83,7 +83,7 @@ export abstract class ChessPiece implements IChessPiece {
   }
 
   /**
-   * Вспомогательный метод: получить ходы на одну клетку (для короля, коня, пешки).
+   * Helper method: get moves one square at a time (for king, knight, pawn).
    */
   protected getSteppingMoves(
     board: IChessBoard,

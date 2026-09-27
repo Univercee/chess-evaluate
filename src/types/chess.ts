@@ -1,109 +1,109 @@
-/** Цвет фигуры */
+/** Piece color */
 export type PieceColor = 'white' | 'black';
 
-/** Тип фигуры */
+/** Piece type */
 export type PieceType = 'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn';
 
-/** Позиция на доске (координаты) */
+/** Position on the board (coordinates) */
 export interface Position {
-  /** Колонка 0-7 (a-h) */
+  /** Column 0-7 (a-h) */
   col: number;
-  /** Строка 0-7 (8-1, сверху вниз) */
+  /** Row 0-7 (8-1, top to bottom) */
   row: number;
 }
 
-/** Буквенно-цифровая нотация клетки (напр. "e4") */
+/** Alphanumeric square notation (e.g. "e4") */
 export type SquareNotation = string;
 
-/** Описание хода */
+/** Move description */
 export interface Move {
-  /** Откуда */
+  /** From where */
   from: Position;
-  /** Куда */
+  /** To where */
   to: Position;
-  /** Тип фигуры, которая ходит */
+  /** Type of the moving piece */
   pieceType: PieceType;
-  /** Цвет фигуры */
+  /** Piece color */
   color: PieceColor;
-  /** Был ли взят вражеский фишка */
+  /** Whether an enemy piece was captured */
   isCapture: boolean;
-  /** Превращение пешки (если есть) */
+  /** Pawn promotion (if any) */
   promotion?: PieceType;
-  /** Рокировка */
+  /** Castling */
   isCastling?: 'kingside' | 'queenside';
-  /** Взятие на проходе */
+  /** En passant capture */
   isEnPassant?: boolean;
 }
 
-/** Интерфейс для любой шахматной фигуры */
+/** Interface for any chess piece */
 export interface IChessPiece {
-  /** Тип фигуры */
+  /** Piece type */
   readonly type: PieceType;
-  /** Цвет фигуры */
+  /** Piece color */
   readonly color: PieceColor;
-  /** Текущая позиция */
+  /** Current position */
   position: Position;
-  /** Делала ли фигура ход (важно для рокировки и пешек) */
+  /** Whether the piece has moved (important for castling and pawns) */
   hasMoved: boolean;
-  /** Является ли эта фигура превращённой пешкой (важно для рокировки) */
+  /** Whether this piece is a promoted pawn (important for castling) */
   readonly isPromotedPawn: boolean;
 
-  /** Получить Unicode-символ фигуры */
+  /** Get the Unicode symbol of the piece */
   getSymbol(): string;
 
-  /** Получить все легальные целевые клетки (без проверки шаха королю) */
+  /** Get all legal target squares (without checking for king's check) */
   getPossibleMoves(board: IChessBoard): Position[];
 
-  /** Переместить фигуру */
+  /** Move the piece */
   moveTo(position: Position): void;
 }
 
-/** Статус игры */
+/** Game status */
 export type GameStatus =
   | { type: 'playing'; turn: PieceColor; inCheck: boolean }
   | { type: 'checkmate'; winner: PieceColor; loser: PieceColor }
   | { type: 'stalemate' };
 
-/** Интерфейс для шахматной доски */
+/** Interface for the chess board */
 export interface IChessBoard {
-  /** Получить фигуру на клетке (или undefined) */
+  /** Get piece at a square (or null) */
   getPieceAt(position: Position): IChessPiece | null;
 
-  /** Получить все фигуры заданного цвета */
+  /** Get all pieces of a given color */
   getPiecesByColor(color: PieceColor): IChessPiece[];
 
-  /** Проверить, находится ли позиция в пределах доски */
+  /** Check if a position is within the board */
   isValidPosition(position: Position): boolean;
 
-  /** Проверить, находится ли король данного цвета под шахом */
+  /** Check if the king of a given color is in check */
   isKingInCheck(color: PieceColor): boolean;
 
-  /** Получить все легальные ходы для фигуры (с учётом шаха) */
+  /** Get all legal moves for a piece (considering check) */
   getLegalMoves(position: Position): Position[];
 
-  /** Выполнить ход. promotion — тип фигуры для превращения пешки (queen/rook/bishop/knight) */
+  /** Execute a move. promotion — piece type for pawn promotion (queen/rook/bishop/knight) */
   makeMove(from: Position, to: Position, promotion?: PieceType): Move | null;
 
-  /** Определить, чей ход */
+  /** Get whose turn it is */
   getCurrentTurn(): PieceColor;
 
-  /** Получить клетку для взятия на проходе (или null) */
+  /** Get the en passant target square (or null) */
   getEnPassantTarget(): Position | null;
 
-  /** Проверить, объявлен ли мат игроку данного цвета */
+  /** Check if a player of a given color is in checkmate */
   isCheckmate(color: PieceColor): boolean;
 
-  /** Проверить, объявлен ли пат игроку данного цвета */
+  /** Check if a player of a given color is in stalemate */
   isStalemate(color: PieceColor): boolean;
 
-  /** Получить текущий статус игры */
+  /** Get the current game status */
   getGameStatus(): GameStatus;
 }
 
 /**
- * Unicode-символы фигур.
- * Все фигуры используют один набор символов (белые),
- * раскраска выполняется через CSS (белые — белые, чёрные — чёрные).
+ * Piece Unicode symbols.
+ * All pieces use the same set of symbols (white ones),
+ * coloring is done via CSS (white — white, black — black).
  */
 export const PIECE_SYMBOLS: Record<PieceColor, Record<PieceType, string>> = {
   white: {
@@ -124,14 +124,14 @@ export const PIECE_SYMBOLS: Record<PieceColor, Record<PieceType, string>> = {
   },
 };
 
-/** Преобразование координат в нотацию */
+/** Convert coordinates to notation */
 export function positionToNotation(pos: Position): SquareNotation {
   const file = String.fromCharCode(97 + pos.col); // a-h
   const rank = 8 - pos.row; // 8-1
   return `${file}${rank}`;
 }
 
-/** Преобразование нотации в координаты */
+/** Convert notation to coordinates */
 export function notationToPosition(notation: SquareNotation): Position {
   const col = notation.charCodeAt(0) - 97;
   const row = 8 - parseInt(notation[1], 10);

@@ -2,24 +2,24 @@ import { useState, useCallback, useMemo } from 'react';
 import { ChessBoard } from './classes/ChessBoard';
 import { Position, PieceType, PIECE_SYMBOLS, GameStatus } from './types/chess';
 
-/** Фигуры, доступные для превращения пешки */
+/** Pieces available for pawn promotion */
 const PROMOTION_PIECES: PieceType[] = ['queen', 'rook', 'bishop', 'knight'];
 
 function App() {
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
-  // Создаём доску один раз
+  // Create the board once
   const [board] = useState(() => new ChessBoard());
-  // Состояние для ререндера
+  // State for re-rendering
   const [renderTrigger, setRenderTrigger] = useState(0);
-  // Выбранная клетка
+  // Selected square
   const [selectedPos, setSelectedPos] = useState<Position | null>(null);
-  // Легальные ходы для выбранной фигуры
+  // Legal moves for the selected piece
   const [legalMoves, setLegalMoves] = useState<Position[]>([]);
-  // Последний ход (для подсветки)
+  // Last move (for highlighting)
   const [lastMove, setLastMove] = useState<{ from: Position; to: Position } | null>(null);
-  // Ожидаемое превращение пешки
+  // Pending pawn promotion
   const [pendingPromotion, setPendingPromotion] = useState<{
     from: Position;
     to: Position;
@@ -29,7 +29,7 @@ function App() {
     setRenderTrigger((prev) => prev + 1);
   }, []);
 
-  /** Выполнить ход с превращением (или без) */
+  /** Execute a move with promotion (or without) */
   const executeMove = useCallback(
     (from: Position, to: Position, promotion?: PieceType) => {
       const move = board.makeMove(from, to, promotion);
@@ -44,35 +44,35 @@ function App() {
     [board, forceRender]
   );
 
-  // Статус игры через централизованный метод
+  // Game status via centralized method
   const gameStatus: GameStatus = useMemo(() => {
     return board.getGameStatus();
   }, [board, renderTrigger]);
 
-  // Флаг окончания игры
+  // Game over flag
   const isGameOver = gameStatus.type === 'checkmate' || gameStatus.type === 'stalemate';
 
-  // Клик по клетке
+  // Square click handler
   const handleSquareClick = useCallback(
     (row: number, col: number) => {
-      // Если игра окончена — игнорируем клики
+      // If game is over — ignore clicks
       if (isGameOver) return;
 
-      // Если открыто окно превращения — игнорируем клики по доске
+      // If promotion dialog is open — ignore board clicks
       if (pendingPromotion) return;
 
       const clickedPos = { row, col };
 
-      // Если есть выбранная фигура и кликнули на легальный ход
+      // If there's a selected piece and clicked on a legal move
       if (selectedPos) {
         const isLegalTarget = legalMoves.some(
           (m) => m.col === col && m.row === row
         );
 
         if (isLegalTarget) {
-          // Проверяем, нужно ли превращение
+          // Check if promotion is needed
           if (board.needsPromotion(selectedPos, clickedPos)) {
-            // Открываем диалог выбора фигуры
+            // Open piece selection dialog
             setPendingPromotion({ from: selectedPos, to: clickedPos });
             return;
           }
@@ -82,7 +82,7 @@ function App() {
         }
       }
 
-      // Выбираем фигуру
+      // Select a piece
       const piece = board.getPieceAt(clickedPos);
       if (piece && piece.color === board.getCurrentTurn()) {
         setSelectedPos(clickedPos);
@@ -95,7 +95,7 @@ function App() {
     [board, selectedPos, legalMoves, pendingPromotion, executeMove, isGameOver]
   );
 
-  // Обработчик выбора фигуры для превращения
+  // Promotion piece selection handler
   const handlePromotionChoice = useCallback(
     (pieceType: PieceType) => {
       if (!pendingPromotion) return;
@@ -104,32 +104,32 @@ function App() {
     [pendingPromotion, executeMove]
   );
 
-  // Текстовое описание статуса
+  // Status text description
   const statusText = useMemo(() => {
     switch (gameStatus.type) {
       case 'checkmate': {
-        const winner = gameStatus.winner === 'white' ? 'Белые' : 'Чёрные';
-        return `Мат! ${winner} победили!`;
+        const winner = gameStatus.winner === 'white' ? 'White' : 'Black';
+        return `Checkmate! ${winner} wins!`;
       }
       case 'stalemate':
-        return 'Пат! Ничья.';
+        return 'Stalemate! Draw.';
       case 'playing':
         if (gameStatus.inCheck) {
-          return `Шах! Ход ${gameStatus.turn === 'white' ? 'белых' : 'чёрных'}`;
+          return `Check! ${gameStatus.turn === 'white' ? "White's" : "Black's"} turn`;
         }
-        return `Ход ${gameStatus.turn === 'white' ? 'белых' : 'чёрных'}`;
+        return `${gameStatus.turn === 'white' ? "White's" : "Black's"} turn`;
     }
   }, [gameStatus]);
 
-  // Сброс игры
+  // Reset game
   const handleReset = useCallback(() => {
     window.location.reload();
   }, []);
 
-  // Получить состояние доски
+  // Get board state
   const boardState = board.getBoardState();
 
-  // Цвет пешки, ожидающей превращения
+  // Color of the pawn awaiting promotion
   const promotionColor = pendingPromotion
     ? board.getPieceAt(pendingPromotion.from)?.color ?? 'white'
     : 'white';
@@ -137,10 +137,10 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-4 gap-4">
       <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-wide">
-        ♟ Шахматная доска
+        ♟ Chess Board
       </h1>
 
-      {/* Статус */}
+      {/* Status */}
       <div
         className={`px-4 py-2 rounded-lg font-semibold text-sm sm:text-base ${
           gameStatus.type === 'checkmate'
@@ -156,7 +156,7 @@ function App() {
       </div>
 
       <div className="flex items-center">
-        {/* Цифры слева */}
+        {/* Numbers on the left */}
         <div className="flex flex-col mr-1 sm:mr-2">
           {ranks.map((rank) => (
             <div
@@ -168,7 +168,7 @@ function App() {
           ))}
         </div>
 
-        {/* Доска */}
+        {/* Board */}
         <div className="border-4 border-amber-900 rounded shadow-2xl relative">
           {ranks.map((rank, rowIndex) => (
             <div key={rank} className="flex">
@@ -185,7 +185,7 @@ function App() {
                   ((lastMove.from.row === rowIndex && lastMove.from.col === colIndex) ||
                     (lastMove.to.row === rowIndex && lastMove.to.col === colIndex));
 
-                // Подсветка клетки
+                // Square highlighting
                 let bgClass = isLight ? 'bg-amber-100' : 'bg-amber-800';
                 if (isSelected) {
                   bgClass = 'bg-sky-400';
@@ -206,7 +206,7 @@ function App() {
                     `}
                     onClick={() => handleSquareClick(rowIndex, colIndex)}
                   >
-                    {/* Маркер легального хода */}
+                    {/* Legal move marker */}
                     {isLegalTarget && !piece && (
                       <div className="absolute w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-black/20" />
                     )}
@@ -214,7 +214,7 @@ function App() {
                       <div className="absolute inset-0 border-4 border-black/30 rounded-sm" />
                     )}
 
-                    {/* Фигура */}
+                    {/* Piece */}
                     {piece && (
                       <span
                         className={`
@@ -234,12 +234,12 @@ function App() {
             </div>
           ))}
 
-          {/* Модальное окно превращения пешки */}
+          {/* Pawn promotion modal */}
           {pendingPromotion && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 rounded">
               <div className="bg-gray-800 border-2 border-amber-500 rounded-xl p-4 shadow-2xl">
                 <p className="text-white text-center text-sm font-semibold mb-3">
-                  Выберите фигуру
+                  Choose a piece
                 </p>
                 <div className="flex gap-2">
                   {PROMOTION_PIECES.map((pieceType) => (
@@ -269,7 +269,7 @@ function App() {
           )}
         </div>
 
-        {/* Цифры справа */}
+        {/* Numbers on the right */}
         <div className="flex flex-col ml-1 sm:ml-2">
           {ranks.map((rank) => (
             <div
@@ -282,7 +282,7 @@ function App() {
         </div>
       </div>
 
-      {/* Буквы снизу */}
+      {/* Letters at the bottom */}
       <div className="flex ml-6 sm:ml-9">
         {files.map((file) => (
           <div
@@ -294,18 +294,18 @@ function App() {
         ))}
       </div>
 
-      {/* Кнопка сброса */}
+      {/* Reset button */}
       <button
         onClick={handleReset}
         className="mt-2 px-5 py-2 bg-amber-700 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors shadow-lg"
       >
-        Новая игра
+        New Game
       </button>
 
-      {/* Подсказка */}
+      {/* Hint */}
       <p className="text-gray-500 text-xs sm:text-sm text-center max-w-md">
-        Нажмите на фигуру, чтобы увидеть возможные ходы. При достижении пешкой
-        противоположного края выберите фигуру для превращения.
+        Click on a piece to see available moves. When a pawn reaches the opposite
+        edge, choose a piece for promotion.
       </p>
     </div>
   );

@@ -12,17 +12,17 @@ import { ChessPiece } from './ChessPiece';
 import { King, Queen, Rook, Bishop, Knight, Pawn } from './Pieces';
 
 /**
- * Класс шахматной доски.
- * Управляет расстановкой фигур, ходами и проверками.
+ * Chess board class.
+ * Manages piece placement, moves, and validations.
  */
 export class ChessBoard implements IChessBoard {
-  /** Доска 8x8. null = пустая клетка */
+  /** 8x8 board. null = empty square */
   private board: (IChessPiece | null)[][];
-  /** Чей сейчас ход */
+  /** Whose turn it is */
   private currentTurn: PieceColor;
-  /** История ходов */
+  /** Move history */
   private moveHistory: Move[];
-  /** Клетка, на которую можно взять на проходе (или null) */
+  /** Square for en passant capture (or null) */
   private enPassantTarget: Position | null;
 
   constructor() {
@@ -33,23 +33,23 @@ export class ChessBoard implements IChessBoard {
     this.setupInitialPosition();
   }
 
-  /** Начальная расстановка фигур */
+  /** Initial piece placement */
   private setupInitialPosition(): void {
-    // Белые фигуры (ряды 6-7 для пешек, 7 для фигур)
+    // White pieces (rows 6-7 for pawns, 7 for back rank)
     const backRowTypes = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'] as const;
 
     for (let col = 0; col < 8; col++) {
-      // Белые фигуры (нижняя часть доски)
+      // White pieces (bottom of the board)
       this.placePiece(this.createPiece(backRowTypes[col], 'white', { col, row: 7 }));
       this.placePiece(this.createPiece('pawn', 'white', { col, row: 6 }));
 
-      // Чёрные фигуры (верхняя часть доски)
+      // Black pieces (top of the board)
       this.placePiece(this.createPiece(backRowTypes[col], 'black', { col, row: 0 }));
       this.placePiece(this.createPiece('pawn', 'black', { col, row: 1 }));
     }
   }
 
-  /** Фабричный метод создания фигуры */
+  /** Factory method for creating pieces */
   private createPiece(
     type: string,
     color: PieceColor,
@@ -67,7 +67,7 @@ export class ChessBoard implements IChessBoard {
     }
   }
 
-  /** Разместить фигуру на доске */
+  /** Place a piece on the board */
   private placePiece(piece: IChessPiece): void {
     this.board[piece.position.row][piece.position.col] = piece;
   }
@@ -94,7 +94,7 @@ export class ChessBoard implements IChessBoard {
     return position.col >= 0 && position.col < 8 && position.row >= 0 && position.row < 8;
   }
 
-  /** Найти позицию короля заданного цвета */
+  /** Find the position of the king of a given color */
   private findKing(color: PieceColor): Position | null {
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
@@ -107,7 +107,7 @@ export class ChessBoard implements IChessBoard {
     return null;
   }
 
-  /** Проверить, атакуется ли клетка фигурами заданного цвета */
+  /** Check if a square is attacked by pieces of a given color */
   private isSquareAttackedBy(position: Position, attackerColor: PieceColor): boolean {
     const attackers = this.getPiecesByColor(attackerColor);
 
@@ -128,7 +128,7 @@ export class ChessBoard implements IChessBoard {
     return this.isSquareAttackedBy(kingPos, opponentColor);
   }
 
-  /** Получить легальные ходы (с учётом шаха) */
+  /** Get legal moves (considering check) */
   getLegalMoves(position: Position): Position[] {
     const piece = this.getPieceAt(position);
     if (!piece) return [];
@@ -137,7 +137,7 @@ export class ChessBoard implements IChessBoard {
     const legalMoves: Position[] = [];
 
     for (const target of possibleMoves) {
-      // Симулируем ход и проверяем, не под шахом ли свой король
+      // Simulate the move and check if own king is in check
       if (this.isMoveLegal(position, target, piece.color)) {
         legalMoves.push(target);
       }
@@ -146,30 +146,30 @@ export class ChessBoard implements IChessBoard {
     return legalMoves;
   }
 
-  /** Проверить легальность хода (не оставляет ли короля под шахом) */
+  /** Check move legality (whether it leaves the king in check) */
   private isMoveLegal(from: Position, to: Position, color: PieceColor): boolean {
     const movingPiece = this.board[from.row][from.col];
     if (!movingPiece) return false;
 
     const opponentColor: PieceColor = color === 'white' ? 'black' : 'white';
 
-    // Специальная проверка для рокировки
+    // Special check for castling
     if (movingPiece.type === 'king' && Math.abs(to.col - from.col) === 2) {
-      // Король не должен быть под шахом в момент рокировки
+      // King must not be in check at the moment of castling
       if (this.isKingInCheck(color)) {
         return false;
       }
 
-      // Определяем направление рокировки
+      // Determine castling direction
       const direction = to.col > from.col ? 1 : -1;
 
-      // Проверяем, что король не проходит через атакованное поле
+      // Check that king doesn't pass through an attacked square
       const intermediateSquare = { col: from.col + direction, row: from.row };
       if (this.isSquareAttackedBy(intermediateSquare, opponentColor)) {
         return false;
       }
 
-      // Проверяем, что конечное поле не под атакой
+      // Check that the destination square is not under attack
       if (this.isSquareAttackedBy(to, opponentColor)) {
         return false;
       }
@@ -177,10 +177,10 @@ export class ChessBoard implements IChessBoard {
       return true;
     }
 
-    // Сохраняем состояние
+    // Save state
     const capturedPiece = this.board[to.row][to.col];
 
-    // Проверяем взятие на проходе
+    // Check for en passant
     let enPassantCapturedPiece: IChessPiece | null = null;
     let enPassantCapturedPos: Position | null = null;
 
@@ -191,25 +191,25 @@ export class ChessBoard implements IChessBoard {
       to.row === this.enPassantTarget.row &&
       capturedPiece === null
     ) {
-      // Это взятие на проходе — нужно удалить пешку противника
+      // This is en passant — need to remove the enemy pawn
       const capturedPawnRow = movingPiece.color === 'white' ? to.row + 1 : to.row - 1;
       enPassantCapturedPos = { col: to.col, row: capturedPawnRow };
       enPassantCapturedPiece = this.board[capturedPawnRow][to.col];
       this.board[capturedPawnRow][to.col] = null;
     }
 
-    // Выполняем ход временно
+    // Temporarily make the move
     this.board[to.row][to.col] = movingPiece;
     this.board[from.row][from.col] = null;
 
-    // Проверяем, под шахом ли король
+    // Check if king is in check
     const inCheck = this.isKingInCheck(color);
 
-    // Откатываем ход
+    // Rollback the move
     this.board[from.row][from.col] = movingPiece;
     this.board[to.row][to.col] = capturedPiece;
 
-    // Откатываем взятие на проходе
+    // Rollback en passant
     if (enPassantCapturedPos && enPassantCapturedPiece) {
       this.board[enPassantCapturedPos.row][enPassantCapturedPos.col] = enPassantCapturedPiece;
     }
@@ -217,18 +217,18 @@ export class ChessBoard implements IChessBoard {
     return !inCheck;
   }
 
-  /** Выполнить ход */
-  /** Проверить, нужно ли превращение пешки после хода на заданную клетку */
+  /** Check if pawn promotion is needed after moving to a given square */
   needsPromotion(from: Position, to: Position): boolean {
     const piece = this.getPieceAt(from);
     if (!piece || piece.type !== 'pawn') return false;
 
-    // Белая пешка превращается на 0-й строке (8-я горизонталь),
-    // чёрная — на 7-й строке (1-я горизонталь)
+    // White pawn promotes on row 0 (8th rank),
+    // black pawn promotes on row 7 (1st rank)
     const promotionRow = piece.color === 'white' ? 0 : 7;
     return to.row === promotionRow;
   }
 
+  /** Execute a move */
   makeMove(from: Position, to: Position, promotion?: PieceType): Move | null {
     const piece = this.getPieceAt(from);
     if (!piece) return null;
@@ -238,15 +238,15 @@ export class ChessBoard implements IChessBoard {
     const isLegal = legalMoves.some(m => m.col === to.col && m.row === to.row);
     if (!isLegal) return null;
 
-    // Если пешка дошла до конца — требуется превращение
+    // If pawn reached the end — promotion is required
     const requiresPromotion = this.needsPromotion(from, to);
     if (requiresPromotion && !promotion) {
-      // Превращение не указано — возвращаем специальный результат,
-      // чтобы UI мог запросить выбор у пользователя
+      // Promotion not specified — return null
+      // so UI can request user's choice
       return null;
     }
 
-    // Валидация типа превращения
+    // Validate promotion type
     if (requiresPromotion && promotion) {
       const validPromotions: PieceType[] = ['queen', 'rook', 'bishop', 'knight'];
       if (!validPromotions.includes(promotion)) {
@@ -258,7 +258,7 @@ export class ChessBoard implements IChessBoard {
     let isCapture = capturedPiece !== null;
     let isEnPassant = false;
 
-    // Проверка взятия на проходе
+    // En passant check
     if (
       piece.type === 'pawn' &&
       this.enPassantTarget !== null &&
@@ -269,38 +269,38 @@ export class ChessBoard implements IChessBoard {
       isEnPassant = true;
       isCapture = true;
 
-      // Удаляем взятую пешку (она находится на той же колонке, но на строке берущей пешки)
+      // Remove the captured pawn (it's on the same column but on the capturing pawn's row)
       const capturedPawnRow = piece.color === 'white' ? to.row + 1 : to.row - 1;
       this.board[capturedPawnRow][to.col] = null;
     }
 
-    // Выполняем ход
+    // Execute the move
     this.board[to.row][to.col] = piece;
     this.board[from.row][from.col] = null;
     piece.moveTo(to);
 
-    // Превращение пешки
+    // Pawn promotion
     let actualPromotion: PieceType | undefined;
     if (requiresPromotion && promotion) {
       actualPromotion = promotion;
-      // Создаём новую фигуру на месте пешки (isPromotedPawn = true)
+      // Create a new piece in place of the pawn (isPromotedPawn = true)
       const newPiece = this.createPiece(promotion, piece.color, to, true);
       newPiece.hasMoved = true;
       this.board[to.row][to.col] = newPiece;
     }
 
-    // Рокировка — перемещаем ладью
+    // Castling — move the rook
     let isCastling: 'kingside' | 'queenside' | undefined;
     if (piece.type === 'king' && Math.abs(to.col - from.col) === 2) {
       if (to.col > from.col) {
-        // Короткая рокировка
+        // Kingside castling
         isCastling = 'kingside';
         const rook = this.board[from.row][7] as IChessPiece;
         this.board[from.row][to.col - 1] = rook;
         this.board[from.row][7] = null;
         rook.moveTo({ col: to.col - 1, row: from.row });
       } else {
-        // Длинная рокировка
+        // Queenside castling
         isCastling = 'queenside';
         const rook = this.board[from.row][0] as IChessPiece;
         this.board[from.row][to.col + 1] = rook;
@@ -309,10 +309,10 @@ export class ChessBoard implements IChessBoard {
       }
     }
 
-    // Сбрасываем enPassantTarget и устанавливаем новый, если пешка сделала ход на 2 клетки
+    // Reset enPassantTarget and set a new one if pawn moved 2 squares
     this.enPassantTarget = null;
     if (piece.type === 'pawn' && Math.abs(to.row - from.row) === 2) {
-      // Клетка между начальной и конечной позицией
+      // Square between start and end positions
       this.enPassantTarget = {
         col: from.col,
         row: (from.row + to.row) / 2,
@@ -344,46 +344,46 @@ export class ChessBoard implements IChessBoard {
     return this.enPassantTarget;
   }
 
-  /** Получить историю ходов в нотации */
+  /** Get move history in notation */
   getMoveHistory(): string[] {
     return this.moveHistory.map(
       (m) => `${positionToNotation(m.from)}→${positionToNotation(m.to)}`
     );
   }
 
-  /** Получить всю доску для рендеринга */
+  /** Get the entire board for rendering */
   getBoardState(): (IChessPiece | null)[][] {
     return this.board;
   }
 
-  /** Проверить мат: король под шахом И нет ни одного легального хода */
+  /** Check for checkmate: king is in check AND there are no legal moves */
   isCheckmate(color: PieceColor): boolean {
     if (!this.isKingInCheck(color)) return false;
     return !this.hasAnyLegalMove(color);
   }
 
-  /** Проверить пат: король НЕ под шахом, но нет ни одного легального хода */
+  /** Check for stalemate: king is NOT in check, but there are no legal moves */
   isStalemate(color: PieceColor): boolean {
     if (this.isKingInCheck(color)) return false;
     return !this.hasAnyLegalMove(color);
   }
 
-  /** Получить текущий статус игры */
+  /** Get the current game status */
   getGameStatus(): GameStatus {
     const turn = this.getCurrentTurn();
 
-    // Сначала проверяем мат — если король под шахом и нет ходов
+    // First check for checkmate — if king is in check and there are no moves
     if (this.isCheckmate(turn)) {
       const winner: PieceColor = turn === 'white' ? 'black' : 'white';
       return { type: 'checkmate', winner, loser: turn };
     }
 
-    // Затем проверяем пат — если король не под шахом, но нет ходов
+    // Then check for stalemate — if king is not in check but there are no moves
     if (this.isStalemate(turn)) {
       return { type: 'stalemate' };
     }
 
-    // Игра продолжается
+    // Game continues
     return {
       type: 'playing',
       turn,
@@ -391,7 +391,7 @@ export class ChessBoard implements IChessBoard {
     };
   }
 
-  /** Есть ли хотя бы один легальный ход у игрока данного цвета */
+  /** Whether the player of a given color has at least one legal move */
   private hasAnyLegalMove(color: PieceColor): boolean {
     const pieces = this.getPiecesByColor(color);
     for (const piece of pieces) {

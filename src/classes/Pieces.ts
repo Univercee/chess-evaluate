@@ -1,7 +1,7 @@
 import { IChessBoard, Position } from '../types/chess';
 import { ChessPiece } from './ChessPiece';
 
-/** Король — ходит на одну клетку в любом направлении + рокировка */
+/** King — moves one square in any direction + castling */
 export class King extends ChessPiece {
   constructor(color: 'white' | 'black', position: Position) {
     super('king', color, position);
@@ -15,12 +15,12 @@ export class King extends ChessPiece {
     ];
     const moves = this.getSteppingMoves(board, directions);
 
-    // Рокировка
+    // Castling
     if (!this.hasMoved) {
       const row = this.position.row;
       const col = this.position.col;
 
-      // Короткая рокировка (королевская сторона, ладья на col=7)
+      // Kingside castling (king's side, rook at col=7)
       const kingsideRook = board.getPieceAt({ col: 7, row });
       if (
         kingsideRook &&
@@ -29,7 +29,7 @@ export class King extends ChessPiece {
         !kingsideRook.hasMoved &&
         !kingsideRook.isPromotedPawn
       ) {
-        // Проверяем, что клетки между королём и ладьёй пусты
+        // Check that squares between king and rook are empty
         const betweenKingside = [
           { col: col + 1, row },
           { col: col + 2, row },
@@ -38,12 +38,12 @@ export class King extends ChessPiece {
           (pos) => board.getPieceAt(pos) === null
         );
         if (pathClear) {
-          // Целевая клетка рокировки (король перемещается на 2 клетки вправо)
+          // Castling target square (king moves 2 squares to the right)
           moves.push({ col: col + 2, row });
         }
       }
 
-      // Длинная рокировка (ферзевая сторона, ладья на col=0)
+      // Queenside castling (queen's side, rook at col=0)
       const queensideRook = board.getPieceAt({ col: 0, row });
       if (
         queensideRook &&
@@ -52,7 +52,7 @@ export class King extends ChessPiece {
         !queensideRook.hasMoved &&
         !queensideRook.isPromotedPawn
       ) {
-        // Проверяем, что клетки между королём и ладьёй пусты
+        // Check that squares between king and rook are empty
         const betweenQueenside = [
           { col: col - 1, row },
           { col: col - 2, row },
@@ -62,7 +62,7 @@ export class King extends ChessPiece {
           (pos) => board.getPieceAt(pos) === null
         );
         if (pathClear) {
-          // Целевая клетка рокировки (король перемещается на 2 клетки влево)
+          // Castling target square (king moves 2 squares to the left)
           moves.push({ col: col - 2, row });
         }
       }
@@ -72,7 +72,7 @@ export class King extends ChessPiece {
   }
 }
 
-/** Ферзь — сочетает ходы ладьи и слона */
+/** Queen — combines rook and bishop moves */
 export class Queen extends ChessPiece {
   constructor(color: 'white' | 'black', position: Position, isPromotedPawn: boolean = false) {
     super('queen', color, position, isPromotedPawn);
@@ -88,7 +88,7 @@ export class Queen extends ChessPiece {
   }
 }
 
-/** Ладья — ходит по горизонтали и вертикали */
+/** Rook — moves horizontally and vertically */
 export class Rook extends ChessPiece {
   constructor(color: 'white' | 'black', position: Position, isPromotedPawn: boolean = false) {
     super('rook', color, position, isPromotedPawn);
@@ -102,7 +102,7 @@ export class Rook extends ChessPiece {
   }
 }
 
-/** Слон — ходит по диагоналям */
+/** Bishop — moves diagonally */
 export class Bishop extends ChessPiece {
   constructor(color: 'white' | 'black', position: Position, isPromotedPawn: boolean = false) {
     super('bishop', color, position, isPromotedPawn);
@@ -116,7 +116,7 @@ export class Bishop extends ChessPiece {
   }
 }
 
-/** Конь — ходит буквой «Г» */
+/** Knight — moves in an "L" shape */
 export class Knight extends ChessPiece {
   constructor(color: 'white' | 'black', position: Position, isPromotedPawn: boolean = false) {
     super('knight', color, position, isPromotedPawn);
@@ -133,7 +133,7 @@ export class Knight extends ChessPiece {
   }
 }
 
-/** Пешка — ходит вперёд, бьёт по диагонали */
+/** Pawn — moves forward, captures diagonally */
 export class Pawn extends ChessPiece {
   constructor(color: 'white' | 'black', position: Position) {
     super('pawn', color, position);
@@ -146,12 +146,12 @@ export class Pawn extends ChessPiece {
 
     const { col, row } = this.position;
 
-    // Ход вперёд на 1
+    // Move forward by 1
     const oneForward = { col, row: row + direction };
     if (board.isValidPosition(oneForward) && board.getPieceAt(oneForward) === null) {
       moves.push(oneForward);
 
-      // Ход вперёд на 2 с начальной позиции
+      // Move forward by 2 from starting position
       if (row === startRow) {
         const twoForward = { col, row: row + 2 * direction };
         if (board.isValidPosition(twoForward) && board.getPieceAt(twoForward) === null) {
@@ -160,7 +160,7 @@ export class Pawn extends ChessPiece {
       }
     }
 
-    // Взятие по диагонали
+    // Diagonal capture
     for (const dc of [-1, 1]) {
       const diagonal = { col: col + dc, row: row + direction };
       if (board.isValidPosition(diagonal)) {
@@ -171,14 +171,14 @@ export class Pawn extends ChessPiece {
       }
     }
 
-    // Взятие на проходе (en passant)
+    // En passant capture
     const enPassantTarget = board.getEnPassantTarget();
     if (enPassantTarget !== null) {
-      // Пешка может взять на проходе, если цель находится на диагонали от текущей позиции
+      // Pawn can capture en passant if the target is diagonally from current position
       const targetCol = enPassantTarget.col;
       const targetRow = enPassantTarget.row;
 
-      // Цель должна быть на одну клетку вперёд и на одну клетку в сторону
+      // Target must be one square forward and one square to the side
       if (
         targetRow === row + direction &&
         Math.abs(targetCol - col) === 1
