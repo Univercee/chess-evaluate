@@ -18,7 +18,14 @@ function App() {
 
   // Make a move
   const makeMove = (sourceSquare: string, targetSquare: string, piece: string) => {
-    const gameCopy = new Chess(game.fen());
+    // Clone the game to preserve move history (needed for threefold repetition detection)
+    const gameCopy = new Chess();
+    const history = game.history({ verbose: true });
+    
+    // Replay all moves to preserve history
+    for (const move of history) {
+      gameCopy.move(move);
+    }
     
     // Check if it's a pawn promotion
     const moveDetails = {
@@ -54,9 +61,11 @@ function App() {
     }
     if (game.isDraw()) {
       if (game.isStalemate()) return 'Stalemate! Draw.';
-      if (game.isThreefoldRepetition()) return 'Draw by repetition.';
+      if (game.isThreefoldRepetition()) return 'Draw by threefold repetition.';
       if (game.isInsufficientMaterial()) return 'Draw by insufficient material.';
-      return 'Draw.';
+      // Note: 50-move rule is also covered by isDraw() but chess.js doesn't provide
+      // a separate method to identify it specifically
+      return 'Draw by 50-move rule or other draw condition.';
     }
     if (game.isCheck()) {
       return `Check! ${game.turn() === 'w' ? "White's" : "Black's"} turn`;
