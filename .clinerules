@@ -2,123 +2,163 @@
 
 ## Project Architecture
 
-This is a chess game built with React + TypeScript + Tailwind CSS.
+This is a chess game built with React + TypeScript + Tailwind CSS, using `react-chessboard` and `chess.js` libraries for the board and game logic, with Stockfish integration for position analysis.
 
 ### Code Structure
 
 ```
 src/
-├── types/
-│   └── chess.ts          # Types, interfaces, utilities
-├── classes/
-│   ├── ChessPiece.ts     # Abstract base class for pieces
-│   ├── Pieces.ts         # Concrete piece classes (King, Queen, Rook, Bishop, Knight, Pawn)
-│   └── ChessBoard.ts     # Board class with game logic
-├── App.tsx               # Main UI component
-├── main.tsx              # Entry point
-└── index.css             # Global styles
+├── App.tsx                   # Main component with game board
+├── components/
+│   └── ChessAnalyzer.tsx     # Stockfish analyzer component
+├── hooks/
+│   └── useStockfish.ts       # Stockfish Web Worker hook
+├── main.tsx                  # Entry point
+└── index.css                 # Global styles
 ```
 
-## Key Concepts
+## Key Libraries
 
-### Types and Interfaces (src/types/chess.ts)
+### react-chessboard (v4.4.0)
+Interactive chess board component that provides:
+- Drag and drop piece movement
+- Visual board rendering
+- Customizable styling
+- Piece drop callbacks
 
-- `PieceColor`: 'white' | 'black'
-- `PieceType`: 'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn'
-- `Position`: { col: number, row: number } - coordinates on the board (0-7)
-- `IChessPiece`: interface for all pieces
-- `IChessBoard`: interface for the board
-- `GameStatus`: discriminated union for game status (playing/checkmate/stalemate)
-- `Move`: move description with fields from, to, pieceType, color, isCapture, promotion, isCastling, isEnPassant
+### chess.js
+Chess move validation and game logic library:
+- Validates all chess moves
+- Detects check, checkmate, stalemate, draws
+- Handles special moves (castling, en passant, promotion)
+- Provides FEN notation support
 
-### Piece Classes (src/classes/)
+### Stockfish
+Chess engine for position analysis:
+- Runs in Web Worker (separate thread)
+- Communicates via UCI protocol
+- Provides best move and evaluation
 
-**ChessPiece** (abstract base class):
-- Fields: type, color, position, hasMoved, isPromotedPawn
-- Methods: getSymbol(), moveTo(), getPossibleMoves() (abstract)
-- Helper methods: getSlidingMoves() (for queen/rook/bishop), getSteppingMoves() (for king/knight/pawn)
+## Main Component (src/App.tsx)
 
-**Concrete pieces** (King, Queen, Rook, Bishop, Knight, Pawn):
-- Each implements getPossibleMoves() with its own logic
-- King includes castling logic
-- Pawn includes en passant capture
+### State Management
 
-### Board Class (src/classes/ChessBoard.ts)
+```typescript
+const [game, setGame] = useState(new Chess());
+const [showAnalyzer, setShowAnalyzer] = useState(false);
+```
 
-**Main fields:**
-- board: 8x8 array of pieces
-- currentTurn: whose turn it is
-- moveHistory: move history
-- enPassantTarget: square for en passant capture
+### Key Functions
 
-**Key methods:**
-- getPieceAt(position): get piece on a square
-- getLegalMoves(position): legal moves considering check
-- makeMove(from, to, promotion?): execute a move
-- isKingInCheck(color): check detection
-- isCheckmate(color): checkmate detection
-- isStalemate(color): stalemate detection
-- getGameStatus(): centralized game status
-- needsPromotion(from, to): check if pawn promotion is needed
+**makeMove(sourceSquare, targetSquare, piece)**:
+- Validates move using chess.js
+- Handles pawn promotion (auto-promotes to queen)
+- Updates game state
+- Returns false for illegal moves
 
-**Castling logic:**
-- Forbidden if king/rook have moved
-- Forbidden if pieces between them
-- Forbidden if king is in check
-- Forbidden if king passes through attacked square
-- Forbidden if rook is a promoted pawn (isPromotedPawn)
+**gameStatus**:
+- Computed from game state
+- Detects checkmate, stalemate, check, draw conditions
+- Displays appropriate message
 
-**En passant logic:**
-- enPassantTarget is set when pawn moves 2 squares
-- Pawn can capture en passant only on the next move
-- When capturing, the pawn on the intermediate square is removed
+**resetGame()**:
+- Creates new Chess instance
+- Resets to starting position
 
-**Promotion logic:**
-- needsPromotion() checks if pawn reached the opposite edge
-- makeMove() accepts promotion parameter (queen/rook/bishop/knight)
-- New piece is created with isPromotedPawn=true
+### View Modes
 
-### UI (src/App.tsx)
+1. **Play Mode**: Interactive chess board with game logic
+2. **Analyze Mode**: Stockfish position analyzer
 
-**State:**
-- board: ChessBoard instance (doesn't change, is mutated)
-- renderTrigger: counter for forced re-renders
-- selectedPos: selected square
-- legalMoves: legal moves for selected piece
-- lastMove: last move (for highlighting)
-- pendingPromotion: pending pawn promotion
+## ChessAnalyzer Component (src/components/ChessAnalyzer.tsx)
 
-**Important:**
-- gameStatus depends on [board, renderTrigger] because board is mutated
-- forceRender() increments renderTrigger after each move
-- Clicks are blocked when isGameOver or pendingPromotion
+### Props
+- `fen?: string` - Optional initial FEN position
 
-**Piece coloring:**
-- All pieces use one set of Unicode symbols (♔♕♖♗♘♙)
-- White: text-white + black outline via text-shadow
-- Black: text-black + white outline via text-shadow
+### Features
+- FEN input field
+- Analyze/Stop buttons
+- Real-time analysis status
+- Best move display
+- Evaluation display (centipawns or mate)
+- Search depth indicator
+- Loading and error states
+
+### Error Handling
+- Displays error if Stockfish fails to load
+- Shows loading state during initialization
+- Disables controls when engine unavailable
+
+## Stockfish Hook (src/hooks/useStockfish.ts)
+
+### Return Values
+
+```typescript
+{
+  analysis: StockfishAnalysis,  // Current analysis state
+  analyze: (fen, depth?, movetime?) => Promise<StockfishAnalysis>,
+  stop: () => void,
+  isLoading: boolean,
+  error: string | null
+}
+```
+
+### UCI Protocol Implementation
+
+1. **Initialization**:
+   - Creates Web Worker from `/stockfish/stockfish.js`
+   - Sends `uci` command
+   - Waits for `readyok` response
+
+2. **Analysis**:
+   - Sends `position fen <fen>`
+   - Sends `go depth <n> movetime <ms>`
+   - Parses `info` lines for depth and score
+   - Parses `bestmove` for final result
+
+3. **Parsing**:
+   - Extracts depth from `info depth <n>`
+   - Extracts score from `info score cp <n>` or `info score mate <n>`
+   - Extracts best move from `bestmove <move>`
+
+### Type Safety
+
+```typescript
+interface StockfishScore {
+  type: 'cp' | 'mate';
+  value: number;
+}
+
+interface StockfishAnalysis {
+  bestMove: string | null;
+  score: StockfishScore | null;
+  depth: number;
+  isThinking: boolean;
+}
+```
 
 ## Development Rules
 
 ### When adding new functionality:
 
-1. **New types/interfaces** → add to src/types/chess.ts
-2. **New piece logic** → extend getPossibleMoves() in the corresponding class
-3. **New board logic** → add methods to ChessBoard
-4. **New UI** → update App.tsx
+1. **New game features** → extend App.tsx using chess.js API
+2. **New UI components** → create in src/components/
+3. **New hooks** → create in src/hooks/
+4. **Styling** → use Tailwind CSS classes
 
 ### When modifying existing code:
 
-1. **Changing IChessPiece/IChessBoard interface** → update all implementations
-2. **Changing move logic** → check isMoveLegal() and getLegalMoves()
-3. **Changing state** → call forceRender() to update UI
+1. **Game logic** → use chess.js methods, don't implement manually
+2. **Board rendering** → use react-chessboard props and callbacks
+3. **Stockfish integration** → use useStockfish hook
+4. **State management** → use React hooks (useState, useMemo, useCallback)
 
 ### Testing:
 
 - Test all special moves: castling, en passant, promotion
-- Test check/checkmate/stalemate
-- Test move blocking after game ends
-- Test piece coloring (white/black)
+- Test check/checkmate/stalemate detection
+- Test Stockfish loading and error handling
+- Test FEN position updates
 
 ## Commands
 
@@ -130,15 +170,39 @@ npm run typecheck  # TypeScript type checking
 
 ## Dependencies
 
-- React 18.2.0
-- TypeScript 5.7.0
-- Tailwind CSS 4.1.7
-- Vite 6.3.5
+- **react-chessboard** 4.4.0 - Chess board component
+- **chess.js** - Chess logic and validation
+- **React** 18.2.0 - UI library
+- **TypeScript** 5.7.0 - Type safety
+- **Tailwind CSS** 4.1.7 - Styling
+- **Vite** 6.3.5 - Build tool
 
-## Implementation Features
+## Important Notes
 
-1. **State mutation**: ChessBoard is mutated directly, no new objects are created
-2. **Forced re-render**: renderTrigger is used to update UI after mutations
-3. **Unified piece symbols**: all pieces use one Unicode set, coloring via CSS
-4. **Centralized status**: getGameStatus() combines all checks (check/checkmate/stalemate)
-5. **Legality check**: isMoveLegal() simulates the move and checks if the king remains in check
+1. **Stockfish Files**: Must be placed in `public/stockfish/stockfish.js`
+2. **Web Worker**: Stockfish runs in separate thread (no UI blocking)
+3. **FEN Notation**: Used for position exchange between components
+4. **Auto-promotion**: Pawns auto-promote to queen (can be extended)
+5. **Error Handling**: Stockfish errors displayed in UI with helpful messages
+
+## Common Patterns
+
+### Making a move:
+```typescript
+const gameCopy = new Chess(game.fen());
+const move = gameCopy.move({ from: 'e2', to: 'e4' });
+if (move) setGame(gameCopy);
+```
+
+### Checking game status:
+```typescript
+if (game.isCheckmate()) { /* handle checkmate */ }
+if (game.isCheck()) { /* handle check */ }
+if (game.isDraw()) { /* handle draw */ }
+```
+
+### Analyzing position:
+```typescript
+const result = await analyze(fen, 15, 2000);
+// result.bestMove, result.score, result.depth
+```
