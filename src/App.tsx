@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { ChessBoard } from './classes/ChessBoard';
 import { Position, PieceType, PIECE_SYMBOLS, GameStatus } from './types/chess';
+import { ChessAnalyzer } from './components/ChessAnalyzer';
 
 /** Pieces available for pawn promotion */
 const PROMOTION_PIECES: PieceType[] = ['queen', 'rook', 'bishop', 'knight'];
@@ -8,6 +9,9 @@ const PROMOTION_PIECES: PieceType[] = ['queen', 'rook', 'bishop', 'knight'];
 function App() {
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
+  // View mode: 'board' or 'analyzer'
+  const [viewMode, setViewMode] = useState<'board' | 'analyzer'>('board');
 
   // Create the board once
   const [board] = useState(() => new ChessBoard());
@@ -136,9 +140,36 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-4 gap-4">
-      <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-wide">
-        ♟ Chess Board
-      </h1>
+      {/* Mode Switcher */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setViewMode('board')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            viewMode === 'board'
+              ? 'bg-amber-600 text-white'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+          }`}
+        >
+          ♟ Play
+        </button>
+        <button
+          onClick={() => setViewMode('analyzer')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            viewMode === 'analyzer'
+              ? 'bg-amber-600 text-white'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+          }`}
+        >
+          🔍 Analyze
+        </button>
+      </div>
+
+      {/* Board View */}
+      {viewMode === 'board' && (
+        <>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-wide">
+            ♟ Chess Board
+          </h1>
 
       {/* Status */}
       <div
@@ -296,6 +327,13 @@ function App() {
         Click on a piece to see available moves. When a pawn reaches the opposite
         edge, choose a piece for promotion.
       </p>
+        </>
+      )}
+
+      {/* Analyzer View */}
+      {viewMode === 'analyzer' && (
+        <ChessAnalyzer />
+      )}
     </div>
   );
 }
