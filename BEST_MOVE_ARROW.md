@@ -33,18 +33,14 @@ Added visual display of the best move arrow on the chess board, powered by Stock
 
 ### Components
 
-**BestMoveArrow.tsx**
-- SVG-based arrow rendering
-- Converts UCI notation (e.g., "e2e4") to board coordinates
-- Calculates arrow angle and head geometry
-- Semi-transparent green color (opacity 0.8)
-
-**App.tsx Updates**
+**App.tsx**
 - Integrated `useStockfish` hook
 - Added `showBestMove` state
 - Added `boardWidth` state for responsive sizing
 - Auto-analysis effect triggered on position change
-- Conditional rendering of arrow and info panel
+- Uses `customArrows` prop from react-chessboard library
+- Converts UCI notation (e.g., "e2e4") to arrow format: `[startSquare, endSquare, color]`
+- Arrow color: green (#22c55e)
 
 ### Analysis Flow
 
@@ -58,11 +54,11 @@ Added visual display of the best move arrow on the chess board, powered by Stock
 
 ### Arrow Rendering
 
-The arrow is drawn using SVG:
-- **Line**: From source square center to target square center
-- **Head**: Triangular arrowhead pointing in move direction
-- **Color**: Green (#22c55e) with 80% opacity
-- **Size**: Proportional to square size (15% width, 30% head length)
+The arrow is rendered using react-chessboard's built-in `customArrows` prop:
+- **Format**: `[startSquare, endSquare, color]` tuple
+- **Color**: Green (#22c55e)
+- **Rendering**: Handled by react-chessboard library
+- **Integration**: Seamless with board scaling and orientation
 
 ## Usage
 
@@ -84,7 +80,7 @@ The arrow is drawn using SVG:
 ## Dependencies
 
 - `useStockfish` hook (src/hooks/useStockfish.ts)
-- `BestMoveArrow` component (src/components/BestMoveArrow.tsx)
+- `react-chessboard` library with `customArrows` prop
 - Stockfish engine files in `public/stockfish/`
 
 ## Future Enhancements

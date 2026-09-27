@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { ChessAnalyzer } from './components/ChessAnalyzer';
-import { BestMoveArrow } from './components/BestMoveArrow';
 import { useStockfish } from './hooks/useStockfish';
 
 function App() {
@@ -92,6 +91,20 @@ function App() {
     return () => window.removeEventListener('resize', updateWidth);
   }, []);
 
+  // Convert best move to custom arrows format
+  const customArrows = useMemo(() => {
+    if (!showBestMove || !analysis.bestMove || analysis.isThinking) {
+      return [];
+    }
+
+    // Parse UCI notation (e.g., "e2e4")
+    const startSquare = analysis.bestMove.substring(0, 2);
+    const endSquare = analysis.bestMove.substring(2, 4);
+
+    // Arrow format: [startSquare, endSquare, color?]
+    return [[startSquare, endSquare, '#22c55e']] as any;
+  }, [showBestMove, analysis.bestMove, analysis.isThinking]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-4 gap-4">
       <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-wide">
@@ -159,15 +172,12 @@ function App() {
               position={fen}
               onPieceDrop={makeMove}
               boardWidth={boardWidth}
+              customArrows={customArrows}
               customBoardStyle={{
                 borderRadius: '4px',
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
               }}
             />
-            {/* Best Move Arrow */}
-            {showBestMove && analysis.bestMove && !analysis.isThinking && (
-              <BestMoveArrow bestMove={analysis.bestMove} boardWidth={boardWidth} />
-            )}
             {/* Analysis Status */}
             {showBestMove && analysis.isThinking && (
               <div className="absolute top-2 right-2 bg-gray-800/90 text-white px-3 py-1 rounded-lg text-sm flex items-center gap-2">
