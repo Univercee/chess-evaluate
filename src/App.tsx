@@ -1,11 +1,18 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { ChessAnalyzer } from './components/ChessAnalyzer';
+import { BestMoveArrow } from './components/BestMoveArrow';
+import { useStockfish } from './hooks/useStockfish';
 
 function App() {
   const [game, setGame] = useState(new Chess());
   const [showAnalyzer, setShowAnalyzer] = useState(false);
+  const [showBestMove, setShowBestMove] = useState(true);
+  const [boardWidth, setBoardWidth] = useState(600);
+
+  // Stockfish hook for best move analysis
+  const { analysis, analyze, isLoading: isEngineLoading, error: engineError } = useStockfish();
 
   // Get current FEN position
   const fen = game.fen();
@@ -63,6 +70,28 @@ function App() {
     setGame(new Chess());
   };
 
+  // Analyze position after each move
+  useEffect(() => {
+    if (!showAnalyzer && showBestMove && !isEngineLoading && !engineError) {
+      // Small delay to avoid rapid analysis
+      const timer = setTimeout(() => {
+        analyze(fen, 15, 2000);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [fen, showAnalyzer, showBestMove, isEngineLoading, engineError, analyze]);
+
+  // Responsive board width
+  useEffect(() => {
+    const updateWidth = () => {
+      const maxWidth = Math.min(600, window.innerWidth - 40);
+      setBoardWidth(maxWidth);
+    };
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-4 gap-4">
       <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-wide">
@@ -91,6 +120,19 @@ function App() {
         >
           🔍 Analyze
         </button>
+        {!showAnalyzer && (
+          <button
+            onClick={() => setShowBestMove(!showBestMove)}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              showBestMove
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+            title="Show best move arrow"
+          >
+            ➤ Best Move
+          </button>
+        )}
       </div>
 
       {/* Board View */}
@@ -112,17 +154,65 @@ function App() {
           </div>
 
           {/* Chess Board */}
-          <div className="w-full max-w-[600px]">
+          <div className="w-full max-w-[600px] relative">
             <Chessboard
               position={fen}
               onPieceDrop={makeMove}
-              boardWidth={600}
+              boardWidth={boardWidth}
               customBoardStyle={{
                 borderRadius: '4px',
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
               }}
             />
+            {/* Best Move Arrow */}
+            {showBestMove && analysis.bestMove && !analysis.isThinking && (
+              <BestMoveArrow bestMove={analysis.bestMove} boardWidth={boardWidth} />
+            )}
+            {/* Analysis Status */}
+            {showBestMove && analysis.isThinking && (
+              <div className="absolute top-2 right-2 bg-gray-800/90 text-white px-3 py-1 rounded-lg text-sm flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
+                Analyzing...
+              </div>
+            )}
+            {/* Engine Error */}
+            {showBestMove && engineError && (
+              <div className="absolute top-2 right-2 bg-red-800/90 text-white px-3 py-1 rounded-lg text-sm">
+                ⚠️ Engine error
+              </div>
+            )}
           </div>
+
+          {/* Best Move Info */}
+          {showBestMove && analysis.bestMove && !analysis.isThinking && (
+            <div className="bg-gray-800 rounded-lg p-4 max-w-[600px] w-full">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="text-sm text-gray-400">Best Move</div>
+                  <div className="text-xl font-mono font-bold text-white">
+                    {analysis.bestMove}
+                  </div>
+                </div>
+                {analysis.score && (
+                  <div className="text-right">
+                    <div className="text-sm text-gray-400">Evaluation</div>
+                    <div className={`text-xl font-mono font-bold ${
+                      analysis.score.type === 'mate'
+                        ? analysis.score.value > 0 ? 'text-green-400' : 'text-red-400'
+                        : analysis.score.value > 50 ? 'text-green-400'
+                        : analysis.score.value < -50 ? 'text-red-400'
+                        : 'text-yellow-400'
+                    }`}>
+                      {analysis.score.type === 'mate'
+                        ? `Mate in ${Math.abs(analysis.score.value)}`
+                        : `${analysis.score.value > 0 ? '+' : ''}${(analysis.score.value / 100).toFixed(2)}`
+                      }
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Reset button */}
           <button
