@@ -50,19 +50,33 @@ Chess engine for position analysis:
 ## Components
 
 ### ChessComImporter (src/components/ChessComImporter.tsx)
-Component for importing games from chess.com:
-- Uses chess-web-api library for data fetching
-- Extracts game ID from URL using regex patterns
-- Calls `chessAPI.getGameByID(id)` to fetch game data
+Component for importing games from chess.com by username:
+- Uses chess-web-api library with official Chess.com API
+- Fetches player archives via `getPlayerMonthlyArchives(username)`
+- Loads games from archives via `getPlayerCompleteMonthlyArchives(username, year, month)`
+- Implements pagination (10 games per page)
 - Parses PGN using chess.js
 - Handles loading and error states
+
+**Key Methods:**
+- `fetchArchives()`: Retrieves monthly archives for a player
+- `fetchGamesFromArchive(archiveUrl)`: Loads games from selected archive
+- `loadGame(gameData)`: Imports selected game and calls onGameLoad callback
+- `getCurrentPageGames()`: Returns games for current page
+- `getTotalPages()`: Calculates total number of pages
 
 **Usage:**
 ```typescript
 import ChessWebAPI from 'chess-web-api';
 const chessAPI = new ChessWebAPI();
-const response = await chessAPI.getGameByID(gameId);
-const gameData = response.body;
+
+// Fetch archives
+const archivesResponse = await chessAPI.getPlayerMonthlyArchives(username);
+const archives = archivesResponse.body.archives;
+
+// Fetch games from archive
+const gamesResponse = await chessAPI.getPlayerCompleteMonthlyArchives(username, year, month);
+const games = gamesResponse.body.games;
 ```
 
 ## Main Component (src/App.tsx)

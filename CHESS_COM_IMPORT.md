@@ -2,24 +2,25 @@
 
 ## Overview
 
-The application supports importing chess games from chess.com by URL. This feature allows users to load and replay games, analyze positions, and navigate through moves.
+The application supports importing chess games from chess.com by username. This feature allows users to browse player archives, view games by month, and import specific games for analysis and replay.
 
 ## Features
 
-- **URL Import**: Paste any chess.com game URL to load the game
+- **Username Import**: Enter a chess.com username to browse their game archives
+- **Archive Browsing**: View all monthly archives for a player
+- **Game Selection**: Browse games within each archive with pagination
 - **Move Navigation**: Navigate through moves with keyboard-like controls
 - **Position Analysis**: Stockfish analyzes each position as you navigate
 - **Evaluation Bar**: Visual evaluation updates with each move
 - **Best Move Arrow**: Shows the best move for each position
 
-## Supported URL Formats
+## How It Works
 
-The importer supports the following chess.com URL formats:
-
-- `https://www.chess.com/game/live/123456789`
-- `https://www.chess.com/game/daily/123456789`
-- `https://www.chess.com/live/game/123456789`
-- `https://www.chess.com/daily/game/123456789`
+1. **Enter Username**: User enters a chess.com username (e.g., "hikaru")
+2. **Fetch Archives**: Application retrieves list of monthly archives via API
+3. **Select Archive**: User selects a specific month to view games
+4. **Browse Games**: Games are displayed with pagination (10 per page)
+5. **Import Game**: User clicks on a game to load it for analysis
 
 ## Components
 
@@ -34,18 +35,48 @@ interface ChessComImporterProps {
 }
 ```
 
-**Features**:
-- URL input field with validation
-- Loading state with spinner
-- Error handling with user-friendly messages
-- Help text showing supported URL formats
+**State Management**:
+```typescript
+const [username, setUsername] = useState('');
+const [archives, setArchives] = useState<string[]>([]);
+const [selectedArchive, setSelectedArchive] = useState<string | null>(null);
+const [games, setGames] = useState<GameData[]>([]);
+const [currentPage, setCurrentPage] = useState(0);
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
+```
 
-**How it works**:
-1. Extracts game ID from URL using regex patterns
-2. Fetches game data from chess.com public API
-3. Parses PGN (Portable Game Notation)
-4. Creates Chess instance and loads moves
-5. Calls `onGameLoad` callback with game data
+**Key Methods**:
+
+1. **fetchArchives()**: Retrieves monthly archives for a player
+   - Uses `chessAPI.getPlayerMonthlyArchives(username)`
+   - Returns array of archive URLs
+   - Updates `archives` state
+
+2. **fetchGamesFromArchive(archiveUrl)**: Loads games from selected archive
+   - Parses year/month from archive URL
+   - Uses `chessAPI.getPlayerCompleteMonthlyArchives(username, year, month)`
+   - Updates `games` state with game data
+
+3. **loadGame(gameData)**: Imports selected game
+   - Parses PGN using chess.js
+   - Extracts move history
+   - Calls `onGameLoad` callback
+
+4. **getCurrentPageGames()**: Returns games for current page (pagination)
+   - Returns 10 games per page
+   - Controlled by `currentPage` state
+
+5. **getTotalPages()**: Calculates total number of pages
+   - Based on total games and GAMES_PER_PAGE constant
+
+**Features**:
+- Username input with Enter key support
+- Archive list with month/year formatting
+- Game list with player names and dates
+- Pagination controls (Previous/Next)
+- Loading states and error handling
+- Back navigation between archives and games
 
 ### MoveNavigator
 
@@ -79,10 +110,12 @@ interface MoveNavigatorProps {
 ### Importing a Game
 
 1. Click the "📥 Import" button in the mode switcher
-2. Paste a chess.com game URL into the input field
-3. Click "Import Game"
-4. The game loads and displays the starting position
-5. Use navigation controls to browse through moves
+2. Enter a chess.com username (e.g., "hikaru")
+3. Click "Get Archives" to load the player's game archives
+4. Select a month from the archive list
+5. Browse games with pagination (10 per page)
+6. Click on a game to import it
+7. Use navigation controls to browse through moves
 
 ### Navigating Moves
 
@@ -100,27 +133,53 @@ Once a game is loaded:
 
 ### API Integration
 
-The importer uses the **chess-web-api** library, which is a lightweight wrapper for the Chess.com public data API.
+The importer uses the **chess-web-api** library with official Chess.com API endpoints.
 
 **Library**: `chess-web-api` (npm package)
 
-**Method used**: `getGameByID(id)`
+**Methods used**:
 
-**Response format**:
-```json
-{
-  "pgn": "[Event \"Live\"]\n1. e4 e5 2. Nf3 Nc6 ...",
-  "url": "https://www.chess.com/game/live/123456789",
-  ...
-}
-```
+1. **getPlayerMonthlyArchives(username)**
+   - Endpoint: `https://api.chess.com/pub/player/{username}/games/archives`
+   - Returns: Array of archive URLs
+   - Example response:
+   ```json
+   {
+     "archives": [
+       "https://api.chess.com/pub/player/hikaru/games/2024/01",
+       "https://api.chess.com/pub/player/hikaru/games/2024/02",
+       ...
+     ]
+   }
+   ```
+
+2. **getPlayerCompleteMonthlyArchives(username, year, month)**
+   - Endpoint: `https://api.chess.com/pub/player/{username}/games/{YYYY}/{MM}`
+   - Returns: Array of games with PGN and metadata
+   - Example response:
+   ```json
+   {
+     "games": [
+       {
+         "pgn": "[Event \"Live\"]\n1. e4 e5 ...",
+         "url": "https://www.chess.com/game/live/123456789",
+         "white": { "username": "hikaru", "rating": 2750 },
+         "black": { "username": "opponent", "rating": 2600 },
+         "end_time": 1704067200,
+         "time_class": "blitz",
+         ...
+       },
+       ...
+     ]
+   }
+   ```
 
 **Important notes**:
-- The `getGameByID` method is not an official Chess.com API endpoint
-- It uses a callback from Chess.com's website to get data
-- It may be unstable and could change without warning
-- Excessive requests could result in an IP ban from Chess.com
-- Chess.com tolerates "polite" usage but may take action if abused
+- Uses official Chess.com public API endpoints
+- No authentication required for public data
+- Rate limits apply (be respectful with requests)
+- CORS enabled for browser-based applications
+- Stable and officially supported by Chess.com
 
 ### TypeScript Support
 
@@ -168,14 +227,25 @@ const [viewMode, setViewMode] = useState<'play' | 'analyzer' | 'import'>('play')
 
 ### Common Errors
 
-1. **Invalid URL**: URL doesn't match chess.com patterns
-   - Message: "Invalid chess.com URL. Please provide a valid game URL."
+1. **Invalid Username**: Username doesn't exist or is misspelled
+   - Message: "Failed to fetch archives"
+   - Solution: Verify the username is correct and the player has public games
 
-2. **API Error**: Failed to fetch game data
-   - Message: "Failed to fetch game: {statusText}"
+2. **No Archives Found**: Player exists but has no game archives
+   - Message: "No game archives found for this player."
+   - Solution: Player may be new or has no public games
 
-3. **Missing PGN**: Game data doesn't contain PGN
+3. **API Error**: Failed to fetch games from archive
+   - Message: "Failed to fetch games: {error}"
+   - Solution: Check network connection and try again
+
+4. **Missing PGN**: Game data doesn't contain PGN
    - Message: "Game data does not contain PGN."
+   - Solution: Game may be incomplete or corrupted
+
+5. **Rate Limit**: Too many requests to Chess.com API
+   - Message: "Failed to fetch archives" or "Failed to fetch games"
+   - Solution: Wait a few minutes before trying again
 
 ### Error Display
 
@@ -185,7 +255,9 @@ Errors are shown in a red alert box below the input field with clear, actionable
 
 1. **Public Games Only**: Only public games can be imported
 2. **No Authentication**: Cannot access private games
-3. **API Rate Limits**: chess.com may rate-limit requests
+3. **API Rate Limits**: chess.com may rate-limit requests (be respectful)
+4. **Monthly Archives**: Games are organized by month, not by individual game
+5. **Pagination**: Only 10 games per page to avoid overwhelming the UI
 4. **CORS**: Browser security may block some requests (handled by chess.com API)
 5. **Unofficial Endpoint**: The `getGameByID` method is not an official Chess.com API endpoint and may be unstable
 6. **Terms of Service**: Using this endpoint technically violates Chess.com's Terms of Service, though they tolerate "polite" usage

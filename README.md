@@ -152,19 +152,22 @@ npm run build
 ### Importing Games from Chess.com
 
 1. Click "📥 Import" button to enter import mode
-2. Paste a chess.com game URL (e.g., `https://www.chess.com/game/live/123456789`)
-3. Click "Import Game" button
-4. The game loads and displays the starting position
-5. Use navigation controls (⏮ ◀ ▶ ⏭) to browse through moves
-6. Click any move in the move list to jump directly to it
-7. Stockfish analyzes each position automatically
-8. Evaluation bar and best move arrow update with each move
+2. Enter a chess.com username (e.g., `hikaru`)
+3. Click "Get Archives" to load the player's game archives
+4. Select a month from the archive list
+5. Browse games with pagination (10 per page)
+6. Click on a game to import it
+7. Use navigation controls (⏮ ◀ ▶ ⏭) to browse through moves
+8. Click any move in the move list to jump directly to it
+9. Stockfish analyzes each position automatically
+10. Evaluation bar and best move arrow update with each move
 
-**Supported URL formats:**
-- `https://www.chess.com/game/live/...`
-- `https://www.chess.com/game/daily/...`
-- `https://www.chess.com/live/game/...`
-- `https://www.chess.com/daily/game/...`
+**Features:**
+- Browse all monthly archives for any player
+- View games organized by month
+- Pagination for easy navigation (10 games per page)
+- Game metadata (players, ratings, time control, date)
+- Uses official Chess.com API (stable and reliable)
 
 See `CHESS_COM_IMPORT.md` for detailed documentation.
 

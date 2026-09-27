@@ -6,78 +6,86 @@ interface ChessComImporterProps {
   onGameLoad: (game: Chess, moves: string[]) => void;
 }
 
+interface GameData {
+  pgn: string;
+  url: string;
+  [key: string]: any;
+}
+
 /**
- * Component for importing games from chess.com by URL
- * Uses chess-web-api library for data fetching
+ * Component for importing games from chess.com by username
+ * Uses official Chess.com API to fetch player archives and games
  */
 export function ChessComImporter({ onGameLoad }: ChessComImporterProps) {
-  const [url, setUrl] = useState('');
+  const [username, setUsername] = useState('');
+  const [archives, setArchives] = useState<string[]>([]);
+  const [selectedArchive, setSelectedArchive] = useState<string | null>(null);
+  const [games, setGames] = useState<GameData[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Initialize chess-web-api client
   const chessAPI = new ChessWebAPI();
 
-  /**
-   * Extract game ID from chess.com URL
-   * Supported formats:
-   * - https://www.chess.com/game/live/123456789
-   * - https://www.chess.com/game/daily/123456789
-   * - https://www.chess.com/live/game/123456789
-   */
-  const extractGameId = (url: string): string | null => {
-    try {
-      // Match various chess.com URL patterns
-      const patterns = [
-        /chess\.com\/game\/live\/(\d+)/,
-        /chess\.com\/game\/daily\/(\d+)/,
-        /chess\.com\/live\/game\/(\d+)/,
-        /chess\.com\/daily\/game\/(\d+)/,
-      ];
-
-      for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match) {
-          return match[1];
-        }
-      }
-
-      return null;
-    } catch {
-      return null;
-    }
-  };
+  const GAMES_PER_PAGE = 10;
 
   /**
-   * Fetch game data from chess.com using chess-web-api
+   * Fetch player archives from chess.com API
    */
-  const fetchGame = async (gameId: string) => {
-    try {
-      const response = await chessAPI.getGameByID(gameId);
-      return response.body;
-    } catch (err) {
-      throw new Error(`Failed to fetch game: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  };
-
-  /**
-   * Handle import button click
-   */
-  const handleImport = async () => {
+  const fetchArchives = async () => {
     setError(null);
     setLoading(true);
 
     try {
-      // Extract game ID from URL
-      const gameId = extractGameId(url);
-      if (!gameId) {
-        throw new Error('Invalid chess.com URL. Please provide a valid game URL.');
+      const response = await chessAPI.getPlayerMonthlyArchives(username);
+      const archiveUrls = response.body.archives || [];
+      
+      if (archiveUrls.length === 0) {
+        throw new Error('No game archives found for this player.');
       }
 
-      // Fetch game data using chess-web-api
-      const gameData = await fetchGame(gameId);
+      setArchives(archiveUrls);
+      setSelectedArchive(null);
+      setGames([]);
+      setCurrentPage(0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch archives');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Parse PGN
+  /**
+   * Fetch games from selected archive
+   */
+  const fetchGamesFromArchive = async (archiveUrl: string) => {
+    setError(null);
+    setLoading(true);
+
+    try {
+      // Archive URL format: https://api.chess.com/pub/player/{username}/games/{YYYY}/{MM}
+      const urlParts = archiveUrl.split('/');
+      const year = urlParts[urlParts.length - 2];
+      const month = urlParts[urlParts.length - 1];
+
+      const response = await chessAPI.getPlayerCompleteMonthlyArchives(username, year, month);
+      const gamesData = response.body.games || [];
+
+      setGames(gamesData);
+      setCurrentPage(0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch games');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Load a specific game
+   */
+  const loadGame = (gameData: GameData) => {
+    try {
       if (!gameData.pgn) {
         throw new Error('Game data does not contain PGN.');
       }
@@ -94,35 +102,84 @@ export function ChessComImporter({ onGameLoad }: ChessComImporterProps) {
 
       // Call callback with loaded game
       onGameLoad(game, history);
-
-      // Clear input
-      setUrl('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to import game');
-    } finally {
-      setLoading(false);
+      setError(err instanceof Error ? err.message : 'Failed to load game');
     }
   };
 
+  /**
+   * Get current page games
+   */
+  const getCurrentPageGames = () => {
+    const startIndex = currentPage * GAMES_PER_PAGE;
+    const endIndex = startIndex + GAMES_PER_PAGE;
+    return games.slice(startIndex, endIndex);
+  };
+
+  /**
+   * Get total pages
+   */
+  const getTotalPages = () => {
+    return Math.ceil(games.length / GAMES_PER_PAGE);
+  };
+
+  /**
+   * Format archive URL to readable date
+   */
+  const formatArchiveDate = (archiveUrl: string) => {
+    const urlParts = archiveUrl.split('/');
+    const year = urlParts[urlParts.length - 2];
+    const month = urlParts[urlParts.length - 1];
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  };
+
+  /**
+   * Format game date
+   */
+  const formatGameDate = (gameData: GameData) => {
+    if (!gameData.end_time) return 'Unknown date';
+    const date = new Date(gameData.end_time * 1000);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
   return (
-    <div className="bg-gray-800 rounded-lg p-6 max-w-2xl mx-auto">
+    <div className="bg-gray-800 rounded-lg p-6 max-w-4xl mx-auto">
       <h2 className="text-2xl font-bold text-white mb-4">
         📥 Import from Chess.com
       </h2>
 
-      {/* URL Input */}
+      {/* Username Input */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-300 mb-2">
-          Chess.com Game URL
+          Chess.com Username
         </label>
-        <input
-          type="text"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://www.chess.com/game/live/123456789"
-          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-          disabled={loading}
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter username (e.g., hikaru)"
+            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            disabled={loading}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && username.trim()) {
+                fetchArchives();
+              }
+            }}
+          />
+          <button
+            onClick={fetchArchives}
+            disabled={loading || !username.trim()}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
+          >
+            {loading ? 'Loading...' : 'Get Archives'}
+          </button>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -132,31 +189,111 @@ export function ChessComImporter({ onGameLoad }: ChessComImporterProps) {
         </div>
       )}
 
-      {/* Import Button */}
-      <button
-        onClick={handleImport}
-        disabled={loading || !url.trim()}
-        className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
-      >
-        {loading ? (
-          <span className="flex items-center justify-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            Loading...
-          </span>
-        ) : (
-          'Import Game'
-        )}
-      </button>
+      {/* Archives List */}
+      {archives.length > 0 && !selectedArchive && (
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-white mb-2">
+            Select Archive ({archives.length} months)
+          </h3>
+          <div className="max-h-60 overflow-y-auto bg-gray-900 rounded-md p-3">
+            <div className="space-y-2">
+              {archives.map((archiveUrl) => (
+                <button
+                  key={archiveUrl}
+                  onClick={() => {
+                    setSelectedArchive(archiveUrl);
+                    fetchGamesFromArchive(archiveUrl);
+                  }}
+                  className="w-full text-left px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-white transition-colors"
+                >
+                  {formatArchiveDate(archiveUrl)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Games List with Pagination */}
+      {selectedArchive && games.length > 0 && (
+        <div className="mb-4">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg font-semibold text-white">
+              Games from {formatArchiveDate(selectedArchive)} ({games.length} games)
+            </h3>
+            <button
+              onClick={() => {
+                setSelectedArchive(null);
+                setGames([]);
+                setCurrentPage(0);
+              }}
+              className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-md transition-colors"
+            >
+              ← Back to Archives
+            </button>
+          </div>
+
+          {/* Games Grid */}
+          <div className="bg-gray-900 rounded-md p-3 mb-3">
+            <div className="space-y-2">
+              {getCurrentPageGames().map((gameData, index) => (
+                <button
+                  key={index}
+                  onClick={() => loadGame(gameData)}
+                  className="w-full text-left px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-white transition-colors"
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="font-medium">
+                        {gameData.white?.username || 'White'} vs {gameData.black?.username || 'Black'}
+                      </span>
+                      <span className="text-gray-400 text-sm ml-2">
+                        ({gameData.time_class || 'Unknown'})
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {formatGameDate(gameData)}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Pagination */}
+          {getTotalPages() > 1 && (
+            <div className="flex justify-center items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                disabled={currentPage === 0}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+              >
+                ← Previous
+              </button>
+              <span className="text-white text-sm">
+                Page {currentPage + 1} of {getTotalPages()}
+              </span>
+              <button
+                onClick={() => setCurrentPage(Math.min(getTotalPages() - 1, currentPage + 1))}
+                disabled={currentPage === getTotalPages() - 1}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Help Text */}
       <div className="mt-4 text-xs text-gray-400">
-        <p className="mb-1">Supported URL formats:</p>
-        <ul className="list-disc list-inside space-y-1">
-          <li>https://www.chess.com/game/live/...</li>
-          <li>https://www.chess.com/game/daily/...</li>
-          <li>https://www.chess.com/live/game/...</li>
-          <li>https://www.chess.com/daily/game/...</li>
-        </ul>
+        <p className="mb-1">How to use:</p>
+        <ol className="list-decimal list-inside space-y-1">
+          <li>Enter a Chess.com username</li>
+          <li>Click "Get Archives" to load game archives</li>
+          <li>Select a month to view games</li>
+          <li>Click on a game to import it</li>
+        </ol>
       </div>
     </div>
   );
