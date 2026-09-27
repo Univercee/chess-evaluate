@@ -33,11 +33,37 @@ Chess move validation and game logic library:
 - Handles special moves (castling, en passant, promotion)
 - Provides FEN notation support
 
+### chess-web-api (v1.2.0)
+Chess.com API wrapper for game import:
+- Lightweight wrapper for Chess.com public data API
+- Method `getGameByID(id)` fetches game data by ID
+- Returns PGN, metadata, and player info
+- Note: `getGameByID` is unofficial endpoint, may be unstable
+- Custom TypeScript declarations in `src/types/chess-web-api.d.ts`
+
 ### Stockfish
 Chess engine for position analysis:
 - Runs in Web Worker (separate thread)
 - Communicates via UCI protocol
 - Provides best move and evaluation
+
+## Components
+
+### ChessComImporter (src/components/ChessComImporter.tsx)
+Component for importing games from chess.com:
+- Uses chess-web-api library for data fetching
+- Extracts game ID from URL using regex patterns
+- Calls `chessAPI.getGameByID(id)` to fetch game data
+- Parses PGN using chess.js
+- Handles loading and error states
+
+**Usage:**
+```typescript
+import ChessWebAPI from 'chess-web-api';
+const chessAPI = new ChessWebAPI();
+const response = await chessAPI.getGameByID(gameId);
+const gameData = response.body;
+```
 
 ## Main Component (src/App.tsx)
 

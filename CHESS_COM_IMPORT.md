@@ -98,13 +98,13 @@ Once a game is loaded:
 - Best move arrow displays the strongest move
 - All analysis features work the same as in play mode
 
-## Technical Details
-
 ### API Integration
 
-The importer uses the chess.com public API:
-- **Live games**: `https://api.chess.com/pub/game/live/{gameId}`
-- **Daily games**: `https://api.chess.com/pub/game/daily/{gameId}`
+The importer uses the **chess-web-api** library, which is a lightweight wrapper for the Chess.com public data API.
+
+**Library**: `chess-web-api` (npm package)
+
+**Method used**: `getGameByID(id)`
 
 **Response format**:
 ```json
@@ -114,6 +114,17 @@ The importer uses the chess.com public API:
   ...
 }
 ```
+
+**Important notes**:
+- The `getGameByID` method is not an official Chess.com API endpoint
+- It uses a callback from Chess.com's website to get data
+- It may be unstable and could change without warning
+- Excessive requests could result in an IP ban from Chess.com
+- Chess.com tolerates "polite" usage but may take action if abused
+
+### TypeScript Support
+
+The library `chess-web-api` does not include TypeScript type definitions. Custom type declarations are provided in `src/types/chess-web-api.d.ts`.
 
 ### PGN Parsing
 
@@ -176,6 +187,9 @@ Errors are shown in a red alert box below the input field with clear, actionable
 2. **No Authentication**: Cannot access private games
 3. **API Rate Limits**: chess.com may rate-limit requests
 4. **CORS**: Browser security may block some requests (handled by chess.com API)
+5. **Unofficial Endpoint**: The `getGameByID` method is not an official Chess.com API endpoint and may be unstable
+6. **Terms of Service**: Using this endpoint technically violates Chess.com's Terms of Service, though they tolerate "polite" usage
+7. **No TypeScript Types**: The chess-web-api library lacks built-in TypeScript definitions (custom declarations provided)
 
 ## Future Enhancements
 

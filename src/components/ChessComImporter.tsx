@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Chess } from 'chess.js';
+import ChessWebAPI from 'chess-web-api';
 
 interface ChessComImporterProps {
   onGameLoad: (game: Chess, moves: string[]) => void;
@@ -7,11 +8,15 @@ interface ChessComImporterProps {
 
 /**
  * Component for importing games from chess.com by URL
+ * Uses chess-web-api library for data fetching
  */
 export function ChessComImporter({ onGameLoad }: ChessComImporterProps) {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Initialize chess-web-api client
+  const chessAPI = new ChessWebAPI();
 
   /**
    * Extract game ID from chess.com URL
@@ -20,7 +25,7 @@ export function ChessComImporter({ onGameLoad }: ChessComImporterProps) {
    * - https://www.chess.com/game/daily/123456789
    * - https://www.chess.com/live/game/123456789
    */
-  const extractGameId = (url: string): { type: string; id: string } | null => {
+  const extractGameId = (url: string): string | null => {
     try {
       // Match various chess.com URL patterns
       const patterns = [
@@ -33,8 +38,7 @@ export function ChessComImporter({ onGameLoad }: ChessComImporterProps) {
       for (const pattern of patterns) {
         const match = url.match(pattern);
         if (match) {
-          const type = url.includes('/live/') || url.includes('/live/game/') ? 'live' : 'daily';
-          return { type, id: match[1] };
+          return match[1];
         }
       }
 
@@ -45,21 +49,15 @@ export function ChessComImporter({ onGameLoad }: ChessComImporterProps) {
   };
 
   /**
-   * Fetch game data from chess.com API
+   * Fetch game data from chess.com using chess-web-api
    */
-  const fetchGame = async (gameId: string, gameType: string) => {
-    // chess.com public API endpoint
-    const endpoint = gameType === 'live' 
-      ? `https://api.chess.com/pub/game/live/${gameId}`
-      : `https://api.chess.com/pub/game/daily/${gameId}`;
-
-    const response = await fetch(endpoint);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch game: ${response.statusText}`);
+  const fetchGame = async (gameId: string) => {
+    try {
+      const response = await chessAPI.getGameByID(gameId);
+      return response.body;
+    } catch (err) {
+      throw new Error(`Failed to fetch game: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-
-    return await response.json();
   };
 
   /**
@@ -71,13 +69,13 @@ export function ChessComImporter({ onGameLoad }: ChessComImporterProps) {
 
     try {
       // Extract game ID from URL
-      const gameInfo = extractGameId(url);
-      if (!gameInfo) {
+      const gameId = extractGameId(url);
+      if (!gameId) {
         throw new Error('Invalid chess.com URL. Please provide a valid game URL.');
       }
 
-      // Fetch game data
-      const gameData = await fetchGame(gameInfo.id, gameInfo.type);
+      // Fetch game data using chess-web-api
+      const gameData = await fetchGame(gameId);
 
       // Parse PGN
       if (!gameData.pgn) {

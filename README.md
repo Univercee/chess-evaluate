@@ -90,6 +90,7 @@ Custom React hook for Stockfish integration:
 
 - **react-chessboard** (v4.4.0): Interactive chess board component
 - **chess.js**: Chess move validation and game logic
+- **chess-web-api**: Chess.com API wrapper for game import
 - **Stockfish**: Chess engine for position analysis (loaded via Web Worker)
 - **React** 18.2.0: UI framework
 - **TypeScript** 5.7.0: Type safety
@@ -186,6 +187,17 @@ The analyzer communicates with Stockfish via UCI protocol:
 3. **Analysis**: Sends `go depth <n> movetime <ms>` command
 4. **Parsing**: Extracts best move and evaluation from engine output
 5. **Cleanup**: Terminates worker on component unmount
+
+### Chess.com Game Import
+
+The importer uses the **chess-web-api** library to fetch game data:
+
+1. **URL Parsing**: Extracts game ID from chess.com URL
+2. **API Call**: Uses `getGameByID(id)` method to fetch game data
+3. **PGN Parsing**: Loads PGN into chess.js instance
+4. **Move Extraction**: Extracts move history for navigation
+
+**Note**: The `getGameByID` method is not an official Chess.com API endpoint. It uses an unofficial callback mechanism and may be unstable.
 
 ### Type Safety
 
