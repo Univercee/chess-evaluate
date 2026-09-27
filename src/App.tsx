@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { ChessAnalyzer } from './components/ChessAnalyzer';
+import { EvaluationBar } from './components/EvaluationBar';
 import { useStockfish } from './hooks/useStockfish';
 
 function App() {
@@ -175,31 +176,39 @@ function App() {
             {gameStatus}
           </div>
 
-          {/* Chess Board */}
-          <div className="w-full max-w-[600px] relative">
-            <Chessboard
-              position={fen}
-              onPieceDrop={makeMove}
-              boardWidth={boardWidth}
-              customArrows={customArrows}
-              customBoardStyle={{
-                borderRadius: '4px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-              }}
-            />
-            {/* Analysis Status */}
-            {showBestMove && analysis.isThinking && (
-              <div className="absolute top-2 right-2 bg-gray-800/90 text-white px-3 py-1 rounded-lg text-sm flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
-                Analyzing...
-              </div>
+          {/* Chess Board with Evaluation Bar */}
+          <div className="flex gap-2 items-stretch">
+            {/* Evaluation Bar */}
+            {showBestMove && (
+              <EvaluationBar score={analysis.score} height={boardWidth} />
             )}
-            {/* Engine Error */}
-            {showBestMove && engineError && (
-              <div className="absolute top-2 right-2 bg-red-800/90 text-white px-3 py-1 rounded-lg text-sm">
-                ⚠️ Engine error
-              </div>
-            )}
+
+            {/* Chess Board */}
+            <div className="relative" style={{ width: `${boardWidth}px`, height: `${boardWidth}px` }}>
+              <Chessboard
+                position={fen}
+                onPieceDrop={makeMove}
+                boardWidth={boardWidth}
+                customArrows={customArrows}
+                customBoardStyle={{
+                  borderRadius: '4px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                }}
+              />
+              {/* Analysis Status */}
+              {showBestMove && analysis.isThinking && (
+                <div className="absolute top-2 right-2 bg-gray-800/90 text-white px-3 py-1 rounded-lg text-sm flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400"></div>
+                  Analyzing...
+                </div>
+              )}
+              {/* Engine Error */}
+              {showBestMove && engineError && (
+                <div className="absolute top-2 right-2 bg-red-800/90 text-white px-3 py-1 rounded-lg text-sm">
+                  ⚠️ Engine error
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Best Move Info */}
