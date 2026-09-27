@@ -269,17 +269,6 @@ function App() {
           )}
         </div>
 
-        {/* Numbers on the right */}
-        <div className="flex flex-col ml-1 sm:ml-2">
-          {ranks.map((rank) => (
-            <div
-              key={rank}
-              className="flex items-center justify-center text-gray-400 font-semibold text-xs sm:text-sm w-5 sm:w-7 h-10 sm:h-14 md:h-16"
-            >
-              {rank}
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Letters at the bottom */}
