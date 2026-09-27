@@ -1,54 +1,54 @@
-# ♟ Шахматы
+# ♟ Chess
 
-Интерактивная шахматная доска с полной логикой игры, реализованная на React + TypeScript + Tailwind CSS.
+Interactive chess board with complete game logic, built with React + TypeScript + Tailwind CSS.
 
-## 🎮 Возможности
+## 🎮 Features
 
-- **Полная логика шахмат** с проверкой всех правил
-- **Интерактивная доска** — кликайте на фигуры для выбора и совершения ходов
-- **Подсветка ходов** — визуальное отображение доступных ходов
-- **Специальные ходы:**
-  - Рокировка (короткая и длинная)
-  - Взятие на проходе (en passant)
-  - Превращение пешки с выбором фигуры
-- **Проверка статуса:**
-  - Шах — подсветка оранжевым
-  - Мат — объявление победителя
-  - Пат — объявление ничьей
-- **Адаптивный дизайн** — работает на мобильных и десктопах
+- **Complete chess logic** with all rules validation
+- **Interactive board** — click pieces to select and make moves
+- **Move highlighting** — visual display of available moves
+- **Special moves:**
+  - Castling (kingside and queenside)
+  - En passant capture
+  - Pawn promotion with piece selection
+- **Status checking:**
+  - Check — orange highlight
+  - Checkmate — winner announcement
+  - Stalemate — draw announcement
+- **Responsive design** — works on mobile and desktop
 
-## 🏗️ Архитектура
+## 🏗️ Architecture
 
 ```
 src/
 ├── types/
-│   └── chess.ts          # Типы, интерфейсы, утилиты
+│   └── chess.ts          # Types, interfaces, utilities
 ├── classes/
-│   ├── ChessPiece.ts     # Абстрактный базовый класс фигуры
-│   ├── Pieces.ts         # Конкретные классы фигур
-│   └── ChessBoard.ts     # Класс доски с логикой игры
-├── App.tsx               # Главный компонент UI
-├── main.tsx              # Точка входа
-└── index.css             # Глобальные стили
+│   ├── ChessPiece.ts     # Abstract base class for pieces
+│   ├── Pieces.ts         # Concrete piece classes
+│   └── ChessBoard.ts     # Board class with game logic
+├── App.tsx               # Main UI component
+├── main.tsx              # Entry point
+└── index.css             # Global styles
 ```
 
-### Типы и интерфейсы (`src/types/chess.ts`)
+### Types and Interfaces (`src/types/chess.ts`)
 
-Определяет основную структуру данных:
+Defines the core data structures:
 
 - **`PieceColor`**: `'white' | 'black'`
 - **`PieceType`**: `'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn'`
-- **`Position`**: `{ col: number, row: number }` — координаты на доске (0-7)
-- **`IChessPiece`**: интерфейс для всех фигур
-- **`IChessBoard`**: интерфейс для доски
-- **`GameStatus`**: discriminated union для статуса игры
-- **`Move`**: описание хода
+- **`Position`**: `{ col: number, row: number }` — coordinates on the board (0-7)
+- **`IChessPiece`**: interface for all pieces
+- **`IChessBoard`**: interface for the board
+- **`GameStatus`**: discriminated union for game status
+- **`Move`**: move description
 
-### Классы фигур (`src/classes/`)
+### Piece Classes (`src/classes/`)
 
-#### `ChessPiece` (абстрактный базовый класс)
+#### `ChessPiece` (abstract base class)
 
-Базовый класс для всех шахматных фигур:
+Base class for all chess pieces:
 
 ```typescript
 abstract class ChessPiece implements IChessPiece {
@@ -64,20 +64,20 @@ abstract class ChessPiece implements IChessPiece {
 }
 ```
 
-#### Конкретные фигуры (`Pieces.ts`)
+#### Concrete Pieces (`Pieces.ts`)
 
-Каждая фигура реализует свою логику ходов:
+Each piece implements its own move logic:
 
-- **`King`** — ходит на одну клетку в любом направлении + рокировка
-- **`Queen`** — сочетает ходы ладьи и слона
-- **`Rook`** — ходит по горизонтали и вертикали
-- **`Bishop`** — ходит по диагоналям
-- **`Knight`** — ходит буквой «Г»
-- **`Pawn`** — ходит вперёд, бьёт по диагонали, взятие на проходе
+- **`King`** — moves one square in any direction + castling
+- **`Queen`** — combines rook and bishop moves
+- **`Rook`** — moves horizontally and vertically
+- **`Bishop`** — moves diagonally
+- **`Knight`** — moves in an "L" shape
+- **`Pawn`** — moves forward, captures diagonally, en passant
 
-### Класс доски (`ChessBoard.ts`)
+### Board Class (`ChessBoard.ts`)
 
-Управляет всей логикой игры:
+Manages all game logic:
 
 ```typescript
 class ChessBoard implements IChessBoard {
@@ -86,111 +86,111 @@ class ChessBoard implements IChessBoard {
   private moveHistory: Move[];
   private enPassantTarget: Position | null;
 
-  // Основные методы
+  // Main methods
   getPieceAt(position: Position): IChessPiece | null;
   getLegalMoves(position: Position): Position[];
   makeMove(from: Position, to: Position, promotion?: PieceType): Move | null;
   
-  // Проверки
+  // Validation
   isKingInCheck(color: PieceColor): boolean;
   isCheckmate(color: PieceColor): boolean;
   isStalemate(color: PieceColor): boolean;
   getGameStatus(): GameStatus;
   
-  // Специальные ходы
+  // Special moves
   needsPromotion(from: Position, to: Position): boolean;
   getEnPassantTarget(): Position | null;
 }
 ```
 
-## 🎯 Реализованные правила
+## 🎯 Implemented Rules
 
-### Рокировка
+### Castling
 
-Запрещена, если:
-- Король или нужная ладья уже ходили
-- Между ними стоят другие фигуры
-- Король находится под шахом
-- Король проходит через атакованное поле
-- Конечное поле под ударом
-- Ладья — превращённая пешка
+Forbidden if:
+- King or the required rook has already moved
+- There are pieces between them
+- King is in check
+- King passes through an attacked square
+- The destination square is under attack
+- The rook is a promoted pawn
 
-### Взятие на проходе
+### En Passant
 
-- `enPassantTarget` устанавливается при ходе пешки на 2 клетки
-- Пешка может взять на проходе только на следующем ходу
-- При взятии удаляется пешка на промежуточной клетке
+- `enPassantTarget` is set when a pawn moves 2 squares
+- A pawn can capture en passant only on the next move
+- When capturing, the pawn on the intermediate square is removed
 
-### Превращение пешки
+### Pawn Promotion
 
-- При достижении противоположного края (8-я горизонталь для белых, 1-я для чёрных)
-- Открывается модальное окно с выбором: ферзь, ладья, слон, конь
-- Создаётся новая фигура с флагом `isPromotedPawn = true`
+- When reaching the opposite edge (8th rank for white, 1st rank for black)
+- A modal window opens with piece selection: queen, rook, bishop, knight
+- A new piece is created with `isPromotedPawn = true`
 
-### Мат и пат
+### Checkmate and Stalemate
 
-- **Мат**: король под шахом И нет ни одного легального хода
-- **Пат**: король НЕ под шахом, но нет ни одного легального хода
-- После окончания игры все клики блокируются
+- **Checkmate**: king is in check AND there are no legal moves
+- **Stalemate**: king is NOT in check, but there are no legal moves
+- After the game ends, all clicks are blocked
 
 ## 🎨 UI
 
-### Раскраска фигур
+### Piece Coloring
 
-Все фигуры используют один набор Unicode-символов (`♔♕♖♗♘♙`), раскраска выполняется через CSS:
+All pieces use one set of Unicode symbols (`♔♕♖♗♘♙`), coloring is done via CSS:
 
-- **Белые фигуры**: белый цвет + чёрная обводка через `text-shadow`
-- **Чёрные фигуры**: чёрный цвет + белая обводка через `text-shadow`
+- **White pieces**: white color + black outline via `text-shadow`
+- **Black pieces**: black color + white outline via `text-shadow`
 
-### Подсветка
+### Highlighting
 
-- **Выбранная фигура**: голубая клетка
-- **Легальные ходы**: точки на пустых клетках, рамка на клетках с фигурами
-- **Последний ход**: жёлтая подсветка
-- **Шах**: оранжевая плашка статуса
-- **Мат**: красная плашка статуса
-- **Пат**: жёлтая плашка статуса
+- **Selected piece**: blue square
+- **Legal moves**: dots on empty squares, border on squares with pieces
+- **Last move**: yellow highlight
+- **Check**: orange status bar
+- **Checkmate**: red status bar
+- **Stalemate**: yellow status bar
 
-## 🚀 Запуск
+## 🚀 Getting Started
 
 ```bash
-# Установка зависимостей
+# Install dependencies
 npm install
 
-# Запуск dev-сервера
+# Start dev server
 npm run dev
 
-# Сборка production-версии
+# Build production version
 npm run build
 
-# Проверка типов
+# Type checking
 npm run typecheck
 ```
 
-## 📦 Зависимости
+## 📦 Dependencies
 
-- **React** 18.2.0 — UI библиотека
-- **TypeScript** 5.7.0 — типизация
-- **Tailwind CSS** 4.1.7 — стилизация
-- **Vite** 6.3.5 — сборщик
+- **React** 18.2.0 — UI library
+- **TypeScript** 5.7.0 — type safety
+- **Tailwind CSS** 4.1.7 — styling
+- **Vite** 6.3.5 — build tool
 
-## 🔧 Особенности реализации
+## 🔧 Implementation Features
 
-1. **Мутация состояния**: `ChessBoard` мутируется напрямую, а не создаются новые объекты
-2. **Принудительный ререндер**: используется `renderTrigger` для обновления UI после мутаций
-3. **Единые символы фигур**: все фигуры используют один набор Unicode, раскраска через CSS
-4. **Централизованный статус**: `getGameStatus()` объединяет все проверки (шах/мат/пат)
-5. **Проверка легальности**: `isMoveLegal()` симулирует ход и проверяет, не остаётся ли король под шахом
-6. **Флаг `isPromotedPawn`**: предотвращает рокировку с превращённой пешкой-ладьёй
+1. **State mutation**: `ChessBoard` is mutated directly, no new objects are created
+2. **Forced re-render**: `renderTrigger` is used to update UI after mutations
+3. **Unified piece symbols**: all pieces use one Unicode set, coloring via CSS
+4. **Centralized status**: `getGameStatus()` combines all checks (check/checkmate/stalemate)
+5. **Legality check**: `isMoveLegal()` simulates the move and checks if the king remains in check
+6. **`isPromotedPawn` flag**: prevents castling with a promoted pawn-rook
 
-## 📝 Использование
+## 📝 Usage
 
-1. Кликните на фигуру вашего цвета — подсветятся доступные ходы
-2. Кликните на подсвеченную клетку — фигура переместится
-3. Если пешка достигла конца доски — появится окно выбора фигуры для превращения
-4. После мата или пата доска блокируется, отображается результат
-5. Нажмите «Новая игра» для сброса
+1. Click on a piece of your color — available moves will be highlighted
+2. Click on a highlighted square — the piece will move
+3. If a pawn reaches the end of the board — a piece selection window will appear for promotion
+4. After checkmate or stalemate, the board is locked and the result is displayed
+5. Click "New Game" to reset
 
-## 📄 Лицензия
+## 📄 License
 
 MIT

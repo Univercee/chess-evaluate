@@ -1,144 +1,144 @@
-# Шахматы - Правила для AI-ассистентов
+# Chess - Rules for AI Assistants
 
-## Архитектура проекта
+## Project Architecture
 
-Это шахматная игра на React + TypeScript + Tailwind CSS.
+This is a chess game built with React + TypeScript + Tailwind CSS.
 
-### Структура кода
+### Code Structure
 
 ```
 src/
 ├── types/
-│   └── chess.ts          # Типы, интерфейсы, утилиты
+│   └── chess.ts          # Types, interfaces, utilities
 ├── classes/
-│   ├── ChessPiece.ts     # Абстрактный базовый класс фигуры
-│   ├── Pieces.ts         # Конкретные классы фигур (King, Queen, Rook, Bishop, Knight, Pawn)
-│   └── ChessBoard.ts     # Класс доски с логикой игры
-├── App.tsx               # Главный компонент UI
-├── main.tsx              # Точка входа
-└── index.css             # Глобальные стили
+│   ├── ChessPiece.ts     # Abstract base class for pieces
+│   ├── Pieces.ts         # Concrete piece classes (King, Queen, Rook, Bishop, Knight, Pawn)
+│   └── ChessBoard.ts     # Board class with game logic
+├── App.tsx               # Main UI component
+├── main.tsx              # Entry point
+└── index.css             # Global styles
 ```
 
-## Ключевые концепции
+## Key Concepts
 
-### Типы и интерфейсы (src/types/chess.ts)
+### Types and Interfaces (src/types/chess.ts)
 
 - `PieceColor`: 'white' | 'black'
 - `PieceType`: 'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn'
-- `Position`: { col: number, row: number } - координаты на доске (0-7)
-- `IChessPiece`: интерфейс для всех фигур
-- `IChessBoard`: интерфейс для доски
-- `GameStatus`: discriminated union для статуса игры (playing/checkmate/stalemate)
-- `Move`: описание хода с полями from, to, pieceType, color, isCapture, promotion, isCastling, isEnPassant
+- `Position`: { col: number, row: number } - coordinates on the board (0-7)
+- `IChessPiece`: interface for all pieces
+- `IChessBoard`: interface for the board
+- `GameStatus`: discriminated union for game status (playing/checkmate/stalemate)
+- `Move`: move description with fields from, to, pieceType, color, isCapture, promotion, isCastling, isEnPassant
 
-### Классы фигур (src/classes/)
+### Piece Classes (src/classes/)
 
-**ChessPiece** (абстрактный базовый класс):
-- Поля: type, color, position, hasMoved, isPromotedPawn
-- Методы: getSymbol(), moveTo(), getPossibleMoves() (абстрактный)
-- Вспомогательные методы: getSlidingMoves() (для ферзя/ладьи/слона), getSteppingMoves() (для короля/коня/пешки)
+**ChessPiece** (abstract base class):
+- Fields: type, color, position, hasMoved, isPromotedPawn
+- Methods: getSymbol(), moveTo(), getPossibleMoves() (abstract)
+- Helper methods: getSlidingMoves() (for queen/rook/bishop), getSteppingMoves() (for king/knight/pawn)
 
-**Конкретные фигуры** (King, Queen, Rook, Bishop, Knight, Pawn):
-- Каждая реализует getPossibleMoves() со своей логикой
-- King включает логику рокировки
-- Pawn включает взятие на проходе
+**Concrete pieces** (King, Queen, Rook, Bishop, Knight, Pawn):
+- Each implements getPossibleMoves() with its own logic
+- King includes castling logic
+- Pawn includes en passant capture
 
-### Класс доски (src/classes/ChessBoard.ts)
+### Board Class (src/classes/ChessBoard.ts)
 
-**Основные поля:**
-- board: 8x8 массив фигур
-- currentTurn: чей ход
-- moveHistory: история ходов
-- enPassantTarget: клетка для взятия на проходе
+**Main fields:**
+- board: 8x8 array of pieces
+- currentTurn: whose turn it is
+- moveHistory: move history
+- enPassantTarget: square for en passant capture
 
-**Ключевые методы:**
-- getPieceAt(position): получить фигуру на клетке
-- getLegalMoves(position): легальные ходы с учётом шаха
-- makeMove(from, to, promotion?): выполнить ход
-- isKingInCheck(color): проверка шаха
-- isCheckmate(color): проверка мата
-- isStalemate(color): проверка пата
-- getGameStatus(): централизованный статус игры
-- needsPromotion(from, to): проверка необходимости превращения пешки
+**Key methods:**
+- getPieceAt(position): get piece on a square
+- getLegalMoves(position): legal moves considering check
+- makeMove(from, to, promotion?): execute a move
+- isKingInCheck(color): check detection
+- isCheckmate(color): checkmate detection
+- isStalemate(color): stalemate detection
+- getGameStatus(): centralized game status
+- needsPromotion(from, to): check if pawn promotion is needed
 
-**Логика рокировки:**
-- Запрещена если король/ладья ходили
-- Запрещена если между ними фигуры
-- Запрещена если король под шахом
-- Запрещена если король проходит через атакованное поле
-- Запрещена если ладья - превращённая пешка (isPromotedPawn)
+**Castling logic:**
+- Forbidden if king/rook have moved
+- Forbidden if pieces between them
+- Forbidden if king is in check
+- Forbidden if king passes through attacked square
+- Forbidden if rook is a promoted pawn (isPromotedPawn)
 
-**Логика взятия на проходе:**
-- enPassantTarget устанавливается при ходе пешки на 2 клетки
-- Пешка может взять на проходе только на следующем ходу
-- При взятии удаляется пешка на промежуточной клетке
+**En passant logic:**
+- enPassantTarget is set when pawn moves 2 squares
+- Pawn can capture en passant only on the next move
+- When capturing, the pawn on the intermediate square is removed
 
-**Логика превращения:**
-- needsPromotion() проверяет, достигла ли пешка противоположного края
-- makeMove() принимает параметр promotion (queen/rook/bishop/knight)
-- Создаётся новая фигура с isPromotedPawn=true
+**Promotion logic:**
+- needsPromotion() checks if pawn reached the opposite edge
+- makeMove() accepts promotion parameter (queen/rook/bishop/knight)
+- New piece is created with isPromotedPawn=true
 
 ### UI (src/App.tsx)
 
-**Состояния:**
-- board: экземпляр ChessBoard (не меняется, мутируется)
-- renderTrigger: счётчик для принудительного ререндера
-- selectedPos: выбранная клетка
-- legalMoves: легальные ходы для выбранной фигуры
-- lastMove: последний ход (для подсветки)
-- pendingPromotion: ожидаемое превращение пешки
+**State:**
+- board: ChessBoard instance (doesn't change, is mutated)
+- renderTrigger: counter for forced re-renders
+- selectedPos: selected square
+- legalMoves: legal moves for selected piece
+- lastMove: last move (for highlighting)
+- pendingPromotion: pending pawn promotion
 
-**Важно:**
-- gameStatus зависит от [board, renderTrigger], т.к. board мутируется
-- forceRender() увеличивает renderTrigger после каждого хода
-- Клики блокируются при isGameOver или pendingPromotion
+**Important:**
+- gameStatus depends on [board, renderTrigger] because board is mutated
+- forceRender() increments renderTrigger after each move
+- Clicks are blocked when isGameOver or pendingPromotion
 
-**Раскраска фигур:**
-- Все фигуры используют один набор Unicode-символов (♔♕♖♗♘♙)
-- Белые: text-white + чёрная обводка через text-shadow
-- Чёрные: text-black + белая обводка через text-shadow
+**Piece coloring:**
+- All pieces use one set of Unicode symbols (♔♕♖♗♘♙)
+- White: text-white + black outline via text-shadow
+- Black: text-black + white outline via text-shadow
 
-## Правила разработки
+## Development Rules
 
-### При добавлении новой функциональности:
+### When adding new functionality:
 
-1. **Новые типы/интерфейсы** → добавлять в src/types/chess.ts
-2. **Новая логика фигур** → расширять getPossibleMoves() в соответствующем классе
-3. **Новая логика доски** → добавлять методы в ChessBoard
-4. **Новый UI** → обновлять App.tsx
+1. **New types/interfaces** → add to src/types/chess.ts
+2. **New piece logic** → extend getPossibleMoves() in the corresponding class
+3. **New board logic** → add methods to ChessBoard
+4. **New UI** → update App.tsx
 
-### При изменении существующего кода:
+### When modifying existing code:
 
-1. **Изменение интерфейса IChessPiece/IChessBoard** → обновить все реализации
-2. **Изменение логики ходов** → проверить isMoveLegal() и getLegalMoves()
-3. **Изменение состояния** → вызвать forceRender() для обновления UI
+1. **Changing IChessPiece/IChessBoard interface** → update all implementations
+2. **Changing move logic** → check isMoveLegal() and getLegalMoves()
+3. **Changing state** → call forceRender() to update UI
 
-### Тестирование:
+### Testing:
 
-- Проверять все специальные ходы: рокировка, взятие на проходе, превращение
-- Проверять шах/мат/пат
-- Проверять блокировку ходов после окончания игры
-- Проверять раскраску фигур (белые/чёрные)
+- Test all special moves: castling, en passant, promotion
+- Test check/checkmate/stalemate
+- Test move blocking after game ends
+- Test piece coloring (white/black)
 
-## Команды
+## Commands
 
 ```bash
-npm run dev        # Запуск dev-сервера
-npm run build      # Сборка production-версии
-npm run typecheck  # Проверка типов TypeScript
+npm run dev        # Start dev server
+npm run build      # Build production version
+npm run typecheck  # TypeScript type checking
 ```
 
-## Зависимости
+## Dependencies
 
 - React 18.2.0
 - TypeScript 5.7.0
 - Tailwind CSS 4.1.7
 - Vite 6.3.5
 
-## Особенности реализации
+## Implementation Features
 
-1. **Мутация состояния**: ChessBoard мутируется напрямую, а не создаются новые объекты
-2. **Принудительный ререндер**: используется renderTrigger для обновления UI после мутаций
-3. **Единые символы фигур**: все фигуры используют один набор Unicode, раскраска через CSS
-4. **Централизованный статус**: getGameStatus() объединяет все проверки (шах/мат/пат)
-5. **Проверка легальности**: isMoveLegal() симулирует ход и проверяет, не остаётся ли король под шахом
+1. **State mutation**: ChessBoard is mutated directly, no new objects are created
+2. **Forced re-render**: renderTrigger is used to update UI after mutations
+3. **Unified piece symbols**: all pieces use one Unicode set, coloring via CSS
+4. **Centralized status**: getGameStatus() combines all checks (check/checkmate/stalemate)
+5. **Legality check**: isMoveLegal() simulates the move and checks if the king remains in check
