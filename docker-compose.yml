@@ -5,6 +5,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Public site address for SEO tags and sitemap.xml; set it in .env or the shell
+        SITE_URL: ${SITE_URL:-}
     container_name: chess-app
     ports:
       - "8080:80"

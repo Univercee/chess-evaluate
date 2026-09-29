@@ -6,30 +6,50 @@ export interface StockfishScore {
   value: number;
 }
 
+/** One principal variation (engine line) */
+export interface PrincipalVariation {
+  /** 1-based rank of the line (1 = best) */
+  multipv: number;
+  depth: number;
+  score: StockfishScore;
+  /** Moves in UCI notation, e.g. ["e2e4", "e7e5"] */
+  moves: string[];
+}
+
 /** Analysis result from Stockfish */
 export interface StockfishAnalysis {
+  /** Position being analyzed; scores are relative to its side to move */
+  fen: string | null;
   bestMove: string | null;
   score: StockfishScore | null;
   depth: number;
+  /** Top lines sorted by rank */
+  lines: PrincipalVariation[];
   isThinking: boolean;
 }
 
 /** UCI info parsed from Stockfish output */
 interface UCIInfo {
   depth?: number;
+  multipv?: number;
   score?: StockfishScore;
   pv?: string[];
 }
+
+/** Number of principal variations the engine reports */
+const MULTI_PV = 3;
 
 /**
  * Hook for integrating Stockfish chess engine via Web Worker
  * Uses UCI protocol to communicate with the engine
  */
-export function useStockfish() {
+export function useStockfish(engineUrl: string) {
   const [analysis, setAnalysis] = useState<StockfishAnalysis>({
+    fen: null,
     bestMove: null,
     score: null,
     depth: 0,
+    lines: [],
     isThinking: false,
   });
 
@@ -40,32 +60,86 @@ export function useStockfish() {
   const currentAnalysisRef = useRef<{
     resolve: ((result: StockfishAnalysis) => void) | null;
   }>({ resolve: null });
+  // Stockfish prints its lines as a batch (multipv 1..N); collect a batch and publish it whole,
+  // otherwise lines from different batches get mixed and appear out of order
+  const pendingLinesRef = useRef<PrincipalVariation[]>([]);
+  // Whether a "go" is running. A new analysis stops it first and waits for its "bestmove"
+  // before starting: this engine build otherwise delays the old "bestmove" until the new
+  // search ends, making the two searches' output indistinguishable
+  const isSearchingRef = useRef(false);
+  const isStoppingRef = useRef(false);
+  const queuedSearchRef = useRef<{ fen: string; depth: number; movetime: number } | null>(null);
 
-  // Initialize Stockfish worker
+  // Start the engine worker; switching engines replaces it and resets all search state
   useEffect(() => {
+    isSearchingRef.current = false;
+    isStoppingRef.current = false;
+    queuedSearchRef.current = null;
+    pendingLinesRef.current = [];
+    currentAnalysisRef.current.resolve = null;
+    setIsLoading(true);
+    setError(null);
+    setAnalysis({ fen: null, bestMove: null, score: null, depth: 0, lines: [], isThinking: false });
+
     try {
-      // Create worker from public/stockfish/stockfish.js
-      workerRef.current = new Worker('/stockfish/stockfish.js');
+      workerRef.current = new Worker(engineUrl);
 
       // Handle messages from Stockfish
       workerRef.current.onmessage = (e) => {
         const line = e.data as string;
-        
+
+        // Output of a search stopped by a newer analyze() call: skip it, then start the queued search
+        if (isStoppingRef.current) {
+          if (line.startsWith('bestmove')) {
+            isStoppingRef.current = false;
+            isSearchingRef.current = false;
+            const queued = queuedSearchRef.current;
+            queuedSearchRef.current = null;
+            if (queued) startSearch(queued.fen, queued.depth, queued.movetime);
+          }
+          if (line.startsWith('info') || line.startsWith('bestmove')) return;
+        }
+
         // Parse "info" lines
         if (line.startsWith('info')) {
           const info = parseUCIInfo(line);
           
-          if (info.depth && info.score) {
-            setAnalysis((prev) => ({
-              ...prev,
-              depth: info.depth!,
-              score: info.score!,
-            }));
+          // "mate 0" with a pv is Stockfish's placeholder for a line it has not searched yet
+          // (printed when the time limit interrupts a MultiPV iteration)
+          const isPlaceholder = info.score?.type === 'mate' && info.score.value === 0;
+
+          if (info.depth && info.score && info.pv?.length && !isPlaceholder) {
+            const line: PrincipalVariation = {
+              multipv: info.multipv ?? 1,
+              depth: info.depth,
+              score: info.score,
+              moves: info.pv,
+            };
+
+            if (line.multipv === 1) {
+              // A new batch starts; publish the previous one if it was cut short
+              // (positions with fewer legal moves than MULTI_PV)
+              publishPendingLines();
+            }
+            pendingLinesRef.current[line.multipv - 1] = line;
+            if (line.multipv === MULTI_PV) {
+              publishPendingLines();
+            }
+
+            // Only the best line drives the overall score/depth
+            if (line.multipv === 1) {
+              setAnalysis((prev) => ({ ...prev, depth: line.depth, score: line.score }));
+            }
           }
         }
 
         // Parse "bestmove" line
         if (line.startsWith('bestmove')) {
+          isSearchingRef.current = false;
+
+          // Publish a final batch that has fewer lines than MULTI_PV
+          publishPendingLines();
+
           const parts = line.split(' ');
           const bestMove = parts[1] !== '(none)' ? parts[1] : null;
 
@@ -95,13 +169,14 @@ export function useStockfish() {
 
       workerRef.current.onerror = (error) => {
         console.error('Stockfish worker error:', error);
-        setError('Failed to load Stockfish engine. Please check if stockfish.js is present in public/stockfish/');
+        setError(`Failed to load the engine (${engineUrl}). Check that its files are present in public/stockfish/`);
         setIsLoading(false);
         setAnalysis((prev) => ({ ...prev, isThinking: false }));
       };
 
       // Initialize UCI protocol
       workerRef.current.postMessage('uci');
+      workerRef.current.postMessage(`setoption name MultiPV value ${MULTI_PV}`);
       workerRef.current.postMessage('isready');
     } catch (error) {
       console.error('Failed to initialize Stockfish:', error);
@@ -115,7 +190,31 @@ export function useStockfish() {
         workerRef.current.terminate();
       }
     };
-  }, []);
+  }, [engineUrl]);
+
+  /**
+   * Send a position and start searching it
+   */
+  function startSearch(fen: string, depth: number, movetime: number) {
+    if (!workerRef.current) return;
+    workerRef.current.postMessage(`position fen ${fen}`);
+    workerRef.current.postMessage(`go depth ${depth} movetime ${movetime}`);
+    isSearchingRef.current = true;
+  }
+
+  /**
+   * Publish the collected lines of the current depth to the analysis state
+   */
+  function publishPendingLines() {
+    const lines = pendingLinesRef.current.filter(Boolean);
+    pendingLinesRef.current = [];
+    // A batch printed when the time limit interrupts an iteration mixes new-depth lines with
+    // stale previous-depth scores and is out of order; keep the last complete batch instead
+    const isConsistent = lines.every((line) => line.depth === lines[0].depth);
+    if (lines.length > 0 && isConsistent) {
+      setAnalysis((prev) => ({ ...prev, lines }));
+    }
+  }
 
   /**
    * Parse UCI info line from Stockfish
@@ -128,6 +227,8 @@ export function useStockfish() {
     for (let i = 0; i < parts.length; i++) {
       if (parts[i] === 'depth' && parts[i + 1]) {
         info.depth = parseInt(parts[i + 1], 10);
+      } else if (parts[i] === 'multipv' && parts[i + 1]) {
+        info.multipv = parseInt(parts[i + 1], 10);
       } else if (parts[i] === 'score') {
         if (parts[i + 1] === 'cp' && parts[i + 2]) {
           info.score = {
@@ -142,6 +243,7 @@ export function useStockfish() {
         }
       } else if (parts[i] === 'pv') {
         info.pv = parts.slice(i + 1);
+        break;
       }
     }
 
@@ -166,18 +268,27 @@ export function useStockfish() {
       }
 
       // Reset analysis state
+      pendingLinesRef.current = [];
       setAnalysis({
+        fen,
         bestMove: null,
         score: null,
         depth: 0,
+        lines: [],
         isThinking: true,
       });
 
-      // Send position to Stockfish
-      workerRef.current.postMessage(`position fen ${fen}`);
-      
-      // Start analysis with depth and time limit
-      workerRef.current.postMessage(`go depth ${depth} movetime ${movetime}`);
+      if (isSearchingRef.current) {
+        // Interrupt the running search instead of letting it run out its time; the new one
+        // starts once it has stopped (only the latest request is kept)
+        queuedSearchRef.current = { fen, depth, movetime };
+        if (!isStoppingRef.current) {
+          isStoppingRef.current = true;
+          workerRef.current.postMessage('stop');
+        }
+      } else {
+        startSearch(fen, depth, movetime);
+      }
 
       // Return a promise that resolves when bestmove is received
       return new Promise((resolve) => {
@@ -188,18 +299,24 @@ export function useStockfish() {
   );
 
   /**
-   * Stop current analysis
+   * Stop analyzing (e.g. the game is over): interrupt a running search, drop a queued one and
+   * clear the results, attributing the empty analysis to `fen`
    */
-  const stop = useCallback(() => {
-    if (workerRef.current) {
+  const cancel = useCallback((fen: string | null = null) => {
+    queuedSearchRef.current = null;
+    if (isSearchingRef.current && !isStoppingRef.current && workerRef.current) {
+      // Its remaining output is skipped in onmessage until its "bestmove"
+      isStoppingRef.current = true;
       workerRef.current.postMessage('stop');
     }
+    pendingLinesRef.current = [];
+    setAnalysis({ fen, bestMove: null, score: null, depth: 0, lines: [], isThinking: false });
   }, []);
 
   return {
     analysis,
     analyze,
-    stop,
+    cancel,
     isLoading,
     error,
   };

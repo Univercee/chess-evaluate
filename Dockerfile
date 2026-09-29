@@ -15,6 +15,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Public site address for canonical/og:url/hreflang and sitemap.xml (optional),
+# e.g. docker build --build-arg SITE_URL=https://chess.example.com .
+ARG SITE_URL=""
+ENV SITE_URL=$SITE_URL
+
 # Build the application
 RUN npm run build
 

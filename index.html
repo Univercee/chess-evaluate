@@ -1,15 +1,73 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Шахматная доска</title>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    <!-- Title, description and social tags are also localized at runtime (src/i18n.ts) -->
+    <title>Chess Analyzer: Chess.com &amp; Lichess Games with Stockfish</title>
+    <meta
+      name="description"
+      content="Free chess game analysis with Stockfish: import games from Chess.com and Lichess, see the top 3 engine lines and an evaluation bar, and find your mistakes."
     />
+    <meta name="theme-color" content="#1f2937" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Open Graph / Twitter; %SITE_URL% is filled in at build time (vite.config.js), empty if unset -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Chess Analyzer" />
+    <meta property="og:title" content="Chess Analyzer: Chess.com &amp; Lichess Games with Stockfish" />
+    <meta
+      property="og:description"
+      content="Free chess game analysis with Stockfish: import games from Chess.com and Lichess, see the top 3 engine lines and an evaluation bar, and find your mistakes."
+    />
+    <meta property="og:image" content="%SITE_URL%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Chess board with Stockfish evaluation bar and best engine lines" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ru_RU" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Chess Analyzer: Chess.com &amp; Lichess Games with Stockfish" />
+    <meta
+      name="twitter:description"
+      content="Free chess game analysis with Stockfish: import games from Chess.com and Lichess, see the top 3 engine lines and an evaluation bar, and find your mistakes."
+    />
+    <meta name="twitter:image" content="%SITE_URL%/og-image.png" />
+
+    <!-- SITE_URL:START — only kept when SITE_URL is set at build time: these need absolute URLs -->
+    <link rel="canonical" href="%SITE_URL%/" />
+    <meta property="og:url" content="%SITE_URL%/" />
+    <link rel="alternate" hreflang="en" href="%SITE_URL%/" />
+    <link rel="alternate" hreflang="ru" href="%SITE_URL%/?lang=ru" />
+    <link rel="alternate" hreflang="zh" href="%SITE_URL%/?lang=zh" />
+    <link rel="alternate" hreflang="x-default" href="%SITE_URL%/" />
+    <!-- SITE_URL:END -->
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Chess Analyzer",
+        "description": "Free chess game analysis with Stockfish: import games from Chess.com and Lichess, see the top 3 engine lines and an evaluation bar, and find your mistakes.",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript and WebAssembly",
+        "inLanguage": ["en", "ru", "zh"],
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": [
+          "Stockfish engine analysis in the browser",
+          "Top 3 engine lines (MultiPV)",
+          "Evaluation bar and best move arrow",
+          "Import games from Chess.com and Lichess",
+          "Try your own moves from any position of an imported game"
+        ],
+        "image": "%SITE_URL%/og-image.png"
+      }
+    </script>
     <style>
-      /* 内联样式确保主题色立即生效，避免闪烁 */
       html,
       body {
         margin: 0;
@@ -27,9 +85,32 @@
         background-color: #1a1a1a !important;
         color: #ffffff;
       }
+      /* Static content for crawlers without JavaScript; React replaces it on mount */
+      .static-intro {
+        min-height: 100vh;
+        box-sizing: border-box;
+        padding: 48px 16px;
+        background: #111827;
+        color: #e5e7eb;
+        font-family: system-ui, sans-serif;
+        text-align: center;
+      }
+      .static-intro h1 {
+        margin: 0 0 12px;
+        font-size: 28px;
+        color: #fff;
+      }
+      .static-intro p,
+      .static-intro ul {
+        max-width: 560px;
+        margin: 0 auto 12px;
+        line-height: 1.5;
+      }
+      .static-intro ul {
+        text-align: left;
+      }
     </style>
     <script>
-      // 在 React 加载前立即设置主题，避免闪烁
       (function () {
         const isInIframe = window.self !== window.top;
 
@@ -40,7 +121,6 @@
         }
 
         if (isInIframe) {
-          // 监听父窗口主动推送的主题消息
           window.addEventListener("message", function (event) {
             if (event.data && typeof event.data.theme === "string") {
               const theme = event.data.theme;
@@ -50,7 +130,6 @@
             }
           });
         } else {
-          // 非 iframe 环境，使用默认 light 主题
           applyThemeToDOM("light");
         }
       })();
@@ -60,11 +139,10 @@
         if (window.self === window.top) return;
         var reported = {};
         window.addEventListener("error", function (event) {
-          // 资源加载失败的 error 事件没有 message，此处仅上报 JS 运行时错误
           if (!event || !event.message) return;
           var key =
             event.message + "|" + (event.filename || "") + "|" + (event.lineno || 0);
-          if (reported[key]) return; // 相同错误只上报一次，避免渲染循环刷屏
+          if (reported[key]) return;
           reported[key] = true;
           try {
             window.parent.postMessage(
@@ -84,14 +162,28 @@
               "*"
             );
           } catch (e) {
-            /* 上报失败不影响页面运行 */
           }
         });
       })();
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main class="static-intro">
+        <h1>♟ Chess Analyzer</h1>
+        <p>
+          Free chess game analysis in your browser with the Stockfish engine. Import a game from
+          Chess.com or Lichess by username, step through its moves and see where it was won or lost.
+        </p>
+        <ul>
+          <li>Evaluation bar and best move arrow for every position</li>
+          <li>Top 3 engine lines, updated live as Stockfish searches deeper</li>
+          <li>Try your own moves from any position of the game</li>
+          <li>Available in English, Russian and Chinese</li>
+        </ul>
+        <noscript><p>Chess Analyzer needs JavaScript and WebAssembly to run the Stockfish engine.</p></noscript>
+      </main>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
