@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
-import { ChevronDown, ChevronLeft, Download } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Download, UserRound } from 'lucide-react';
 import { PlayerInfo } from './PlayerBar';
 import { getLocale, t } from '../i18n';
 import { chessComSource } from '../importers/chesscom';
@@ -140,8 +140,32 @@ interface SourceBrowserProps {
 /**
  * Username search, month list and game list for one platform
  */
+/** localStorage key of the remembered username: "chesscomUsername" / "lichessUsername" */
+const usernameKey = (platform: Platform) => `${platform}Username`;
+
+function readSavedUsername(platform: Platform): string | null {
+  try {
+    return localStorage.getItem(usernameKey(platform)) || null;
+  } catch {
+    // Storage unavailable (private mode, blocked site data): just don't remember
+    return null;
+  }
+}
+
+function writeSavedUsername(platform: Platform, name: string | null) {
+  try {
+    if (name) localStorage.setItem(usernameKey(platform), name);
+    else localStorage.removeItem(usernameKey(platform));
+  } catch {
+    // Not persisted, but still used for this session
+  }
+}
+
 function SourceBrowser({ source, isVisible, loadedGame, onLoad }: SourceBrowserProps) {
-  const [username, setUsername] = useState('');
+  // Username remembered after a successful search; while set it replaces the input
+  const [savedUsername, setSavedUsername] = useState(() => readSavedUsername(source.platform));
+  const [username, setUsername] = useState(savedUsername ?? '');
+  const inputRef = useRef<HTMLInputElement>(null);
   // Canonical username the archives belong to (the input may have been edited since)
   const [owner, setOwner] = useState('');
   const [archives, setArchives] = useState<Archive[]>([]);
@@ -171,6 +195,29 @@ function SourceBrowser({ source, isVisible, loadedGame, onLoad }: SourceBrowserP
         ? t('import.rateLimited')
         : t('import.fetchFailed');
 
+  // Remember a username once it's confirmed to exist (the platform found the player)
+  const rememberUsername = (name: string) => {
+    writeSavedUsername(source.platform, name);
+    setSavedUsername(name);
+    setUsername(name);
+  };
+
+  // Forget the saved username: back to an empty input and empty lists
+  const changeUsername = () => {
+    writeSavedUsername(source.platform, null);
+    setSavedUsername(null);
+    setUsername('');
+    setOwner('');
+    setArchives([]);
+    setSelectedArchive(null);
+    setGames([]);
+    setCursor(undefined);
+    setError(null);
+    cache.current.clear();
+    // Focus once the input is rendered
+    setTimeout(() => inputRef.current?.focus());
+  };
+
   const search = async () => {
     const name = username.trim();
     if (!name) return;
@@ -183,6 +230,7 @@ function SourceBrowser({ source, isVisible, loadedGame, onLoad }: SourceBrowserP
         return;
       }
       setOwner(result.username);
+      rememberUsername(result.username);
       setArchives(result.archives);
       setSelectedArchive(null);
       setGames([]);
@@ -257,6 +305,7 @@ function SourceBrowser({ source, isVisible, loadedGame, onLoad }: SourceBrowserP
         currentArchives = result.archives;
         cache.current.clear();
         setOwner(currentOwner);
+        rememberUsername(currentOwner);
         setArchives(currentArchives);
       }
 
@@ -288,6 +337,7 @@ function SourceBrowser({ source, isVisible, loadedGame, onLoad }: SourceBrowserP
 
   return (
     <>
+      {/* Saved username replaces the input; the searches below keep working with it */}
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -295,15 +345,26 @@ function SourceBrowser({ source, isVisible, loadedGame, onLoad }: SourceBrowserP
           search();
         }}
       >
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder={`${t('import.usernamePlaceholder')} (${source.label})`}
-          aria-label={`${t('import.usernamePlaceholder')} (${source.label})`}
-          className="flex-1 min-w-0 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-          disabled={loading}
-        />
+        {savedUsername ? (
+          <div
+            className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white"
+            title={`${source.label}: ${savedUsername}`}
+          >
+            <UserRound className="w-4 h-4 shrink-0 text-gray-400" aria-hidden />
+            <span className="truncate font-medium">{savedUsername}</span>
+          </div>
+        ) : (
+          <input
+            ref={inputRef}
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder={`${t('import.usernamePlaceholder')} (${source.label})`}
+            aria-label={`${t('import.usernamePlaceholder')} (${source.label})`}
+            className="flex-1 min-w-0 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            disabled={loading}
+          />
+        )}
         <button
           type="submit"
           disabled={loading || !username.trim()}
@@ -321,6 +382,16 @@ function SourceBrowser({ source, isVisible, loadedGame, onLoad }: SourceBrowserP
         <Download className="w-4 h-4" />
         {t('import.lastGame')}
       </button>
+
+      {savedUsername && (
+        <button
+          onClick={changeUsername}
+          disabled={loading}
+          className="block mx-auto text-xs text-gray-400 hover:text-white underline underline-offset-2 disabled:opacity-50 transition-colors"
+        >
+          {t('import.changeUsername')}
+        </button>
+      )}
 
       {error && <div className="p-2 bg-red-900/50 border border-red-700 rounded-md text-red-200 text-sm">{error}</div>}
 
@@ -400,7 +471,9 @@ function SourceBrowser({ source, isVisible, loadedGame, onLoad }: SourceBrowserP
 
       {loading && games.length === 0 && <div className="text-sm text-gray-400 px-1">{t('import.loading')}</div>}
 
-      {archives.length === 0 && !loading && !error && <p className="text-xs text-gray-400 px-1">{t('import.hint')}</p>}
+      {archives.length === 0 && !loading && !error && !savedUsername && (
+        <p className="text-xs text-gray-400 px-1">{t('import.hint')}</p>
+      )}
     </>
   );
 }
