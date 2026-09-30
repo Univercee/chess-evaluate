@@ -17,8 +17,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  # A single job: environment variables (`vars`) of "github-pages" are only available to jobs
+  # that run in that environment, and the build needs them
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
 
@@ -27,31 +32,51 @@ jobs:
           node-version: 22
           cache: npm
 
-      # Provides the site's base path ("/chess-evaluate", or "" for a custom domain) and full URL
+      # Provides the site's base path ("/chess-evaluate", or "" for a custom domain)
       - id: pages
         uses: actions/configure-pages@v6
+
+      # .env gets every key listed in .env.example, valued from the "github-pages" environment
+      # variables (Settings → Environments → github-pages → Environment variables).
+      # A key without a value fails the deploy instead of publishing a misconfigured site.
+      - name: Create .env from .env.example
+        env:
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: |
+          set -euo pipefail
+          : > .env
+          missing=()
+          while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%$'\r'}"
+            # Skip blank lines and comments
+            [[ -z "${line//[[:space:]]/}" || "$line" =~ ^[[:space:]]*# ]] && continue
+            key="$(echo "${line%%=*}" | xargs)"
+            value="$(jq -r --arg key "$key" '.[$key] // empty' <<< "$VARS_JSON")"
+            if [ -z "$value" ]; then
+              missing+=("$key")
+            else
+              printf '%s=%s\n' "$key" "$value" >> .env
+            fi
+          done < .env.example
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Set these variables in the 'github-pages' environment: ${missing[*]}"
+            exit 1
+          fi
+          echo "Created .env with: $(cut -d= -f1 .env | paste -sd ', ')"
 
       - run: npm ci
 
       - run: npm run typecheck
 
-      # BASE_PATH sets Vite's `base` (asset and engine URLs under the project subpath);
-      # SITE_URL enables canonical/og:url/hreflang tags and sitemap.xml (see vite.config.js)
+      # SITE_URL and other settings come from .env; BASE_PATH (Vite `base`) is derived from the
+      # repository's Pages path, so asset and engine URLs work under the project subpath
       - run: npm run build
         env:
           BASE_PATH: ${{ steps.pages.outputs.base_path }}/
-          SITE_URL: ${{ steps.pages.outputs.base_url }}
 
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - id: deployment
         uses: actions/deploy-pages@v5

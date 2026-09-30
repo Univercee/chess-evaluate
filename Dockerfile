@@ -15,8 +15,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Public site address for canonical/og:url/hreflang and sitemap.xml (optional),
-# e.g. docker build --build-arg SITE_URL=https://chess.example.com .
+# Public site address for canonical/og:url/hreflang and sitemap.xml (optional). docker-compose
+# passes it from .env; with plain docker: docker build --build-arg SITE_URL=https://chess.example.com .
+# (.env is excluded from the build context by .dockerignore, so it arrives as a build arg)
 ARG SITE_URL=""
 ENV SITE_URL=$SITE_URL
 

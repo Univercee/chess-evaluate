@@ -6,7 +6,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Public site address for SEO tags and sitemap.xml; set it in .env or the shell
+        # Public site address for SEO tags and sitemap.xml. Compose reads it from .env in this
+        # folder (see .env.example); .env itself isn't sent to the build (.dockerignore)
         SITE_URL: ${SITE_URL:-}
     container_name: chess-app
     ports:

@@ -6,7 +6,8 @@ const LANGUAGES = ["ru", "zh"];
 
 /**
  * SEO tags that need the site's absolute address.
- * SITE_URL (env var or .env), e.g. https://chess.example.com:
+ * SITE_URL from .env (template: .env.example; a real environment variable overrides it),
+ * e.g. https://chess.example.com:
  * - replaces %SITE_URL% in index.html
  * - keeps the canonical/og:url/hreflang block (removed when SITE_URL is unset)
  * - adds a Sitemap line to robots.txt and emits sitemap.xml
@@ -44,6 +45,8 @@ function seo(siteUrl) {
 }
 
 export default defineConfig(({ mode }) => {
+  // Reads .env, .env.local, .env.[mode] (keys listed in .env.example) plus process environment
+  // variables, which take precedence. Empty prefix: config-only, nothing is exposed to client code.
   const env = loadEnv(mode, process.cwd(), "");
   const siteUrl = (env.SITE_URL || "").replace(/\/+$/, "");
   // Public path the app is served from, e.g. "/chess-evaluate/" for a GitHub Pages project site
