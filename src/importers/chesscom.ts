@@ -1,24 +1,34 @@
-import ChessWebAPI from 'chess-web-api';
-import { Archive, GameSource, ImportedGameData, UserNotFoundError } from './types';
+import { Archive, GameSource, ImportedGameData, RateLimitError, UserNotFoundError } from './types';
 
-const chessAPI = new ChessWebAPI();
+const API = 'https://api.chess.com/pub/player';
 
 /**
- * Chess.com public API via chess-web-api: player archives are months, each fetched whole
+ * GET a Chess.com public API endpoint as JSON.
+ *
+ * Deliberately a plain fetch with no custom headers, so it stays a CORS "simple request".
+ * The API's preflight only allows the `Origin` header: any other header (e.g. the
+ * `User-Agent` the chess-web-api package used to set, which Safari/iOS and Firefox actually
+ * send while Chrome drops it) makes the browser block the request.
+ */
+async function getJson(url: string) {
+  const response = await fetch(url);
+  if (response.status === 404) throw new UserNotFoundError();
+  if (response.status === 429) throw new RateLimitError();
+  if (!response.ok) throw new Error(`Chess.com: HTTP ${response.status}`);
+  return response.json();
+}
+
+/**
+ * Chess.com public API: player archives are months, each fetched whole
+ * https://www.chess.com/news/view/published-data-api
  */
 export const chessComSource: GameSource = {
   platform: 'chesscom',
   label: 'Chess.com',
 
   async fetchArchives(username) {
-    let archiveUrls: string[];
-    try {
-      const response = await chessAPI.getPlayerMonthlyArchives(username);
-      archiveUrls = response.body.archives || [];
-    } catch (err: any) {
-      if (err?.statusCode === 404 || err?.status === 404) throw new UserNotFoundError();
-      throw err;
-    }
+    const data = await getJson(`${API}/${encodeURIComponent(username.toLowerCase())}/games/archives`);
+    const archiveUrls: string[] = data.archives || [];
 
     // Archive URL format: https://api.chess.com/pub/player/{username}/games/{YYYY}/{MM}
     const archives: Archive[] = archiveUrls
@@ -33,8 +43,8 @@ export const chessComSource: GameSource = {
 
   async fetchGames(username, archive) {
     const month = String(archive.month).padStart(2, '0');
-    const response = await chessAPI.getPlayerCompleteMonthlyArchives(username, archive.year, month);
-    const games: any[] = response.body.games || [];
+    const data = await getJson(`${API}/${encodeURIComponent(username.toLowerCase())}/games/${archive.year}/${month}`);
+    const games: any[] = data.games || [];
 
     const normalized: ImportedGameData[] = games
       // Chess960 and other variants can't be replayed from the standard starting position

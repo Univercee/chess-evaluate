@@ -13,7 +13,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.98.0",
     "canvas-confetti": "^1.9.3",
-    "chess-web-api": "^1.2.0",
     "chess.js": "^1.4.0",
     "date-fns": "^2.30.0",
     "framer-motion": "^11.16.1",
